@@ -16,6 +16,9 @@
 # where PATH is a glob pattern matching files to be analysed.
 
 namespace eval tcl9migrate {
+    variable packageName tcl9migrate
+    variable scriptDirectory [file dirname [info script]]
+    variable packageVersion 0.1
 
     # Prints a warning
     proc warn {message} {
@@ -293,4 +296,79 @@ namespace eval tcl9migrate::runtime {
 
 }
 
-package provide tcl9migrate 0.1
+proc ::tcl9migrate::help {} {
+    puts [string cat \
+              "Usage:\n" \
+              "    [info nameofexecutable] migrate.tcl install ?dir?\n" \
+              "    [info nameofexecutable] migrate.tcl check ?globpath ...?"
+             ]
+}
+
+proc ::tcl9migrate::install {args} {
+    variable packageName
+    variable scriptDirectory
+
+    if {[llength $args] == 0} {
+        set args $::auto_path
+    }
+    # Reverse order because Tcl puts version-specific before
+    # version independent
+    foreach path [lreverse $args] {
+        set path [file normalize $path]
+        if {[lindex [file system $path] 0] eq "native"} {
+            puts stdout "Installing in $path"
+            set target [file join $path $packageName]
+            file mkdir [file join $target nagelfar]
+            file copy -force -- [info script] $target
+            file copy -force -- [file join $scriptDirectory pkgIndex.tcl] $target
+            file copy -force -- LICENSE $target
+            foreach f {nagelfar.tcl syntaxdb90.tcl tcl9.tcl COPYING} {
+                file copy -force -- [file join $scriptDirectory nagelfar $f] [file join $target nagelfar $f]
+            }
+            return
+        }
+    }
+    puts stderr "Install failure: Could not find a native directory amongst [join $paths {, }]"
+    exit 1
+}
+
+proc ::tcl9migrate::check1 {path} {
+    # Encoding 
+
+}
+
+proc ::tcl9migrate::check {args} {
+    set paths [list ]
+    foreach pat $args {
+        lappend paths {*}[glob -nocomplain $pat]
+    }
+    foreach path $paths {
+        if {[catch {
+            check1 $path
+        } message]} {
+            log "Could not check $path: $message"
+        }
+    }
+}
+
+proc ::tcl9migrate::main {args} {
+    set args [lassign $args cmd]
+    switch $cmd {
+        install -
+        check {
+            $cmd {*}$args
+        }
+        default {
+            help
+            exit 1
+        }
+    }
+}
+
+if {[info exists ::argv0] &&
+    [file dirname [file normalize [file join [info script] ...]]] eq [file dirname [file normalize [file join $::argv0 ...]]]
+} {
+    ::tcl9migrate::main {*}$argv
+} else {
+    package provide $::tcl9migrate::packageName $::tcl9migrate::packageVersion
+}
