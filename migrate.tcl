@@ -25,63 +25,6 @@ namespace eval tcl9migrate {
         puts stderr "Tcl9 Migration Warning: $message"
     }
 
-}
-
-namespace eval tcl9migrate::static {
-
-}
-
-namespace eval tcl9migrate::runtime {
-    namespace path [list [namespace parent] ::tcl::unsupported]
-
-    variable commandWrappers [list file open source]
-    variable haveIcu 0
-
-    proc CommandExists {cmd} {
-        if {[info commands $cmd] eq ""} {
-            return 0
-        } else {
-            return 1
-        }
-    }
-    proc WrapTclCommand {cmd} {
-        set orig ::_tcl9migrate_$cmd
-        if {![CommandExists $orig]} {
-            rename ::$cmd $orig
-            interp alias {} ::$cmd {} [namespace current]::[string totitle $cmd]
-        }
-    }
-    proc UnwrapTclCommand {cmd} {
-        set orig ::_tcl9migrate_$cmd
-        if {[CommandExists $orig]} {
-            rename ::$cmd ""
-            rename $orig ::$cmd
-        }
-    }
-    proc enable {} {
-        uplevel #0 package require Tcl 9-
-
-        variable haveIcu
-        if {!$haveIcu} {
-            if {[catch {::source [::file join [info library] icu.tcl]} message]} {
-                warn "ICU not available ($message). Encoding detection disabled."
-                set haveIcu 0
-            } else {
-                set haveIcu 1
-            }
-        }
-        variable commandWrappers
-        foreach cmd $commandWrappers {
-            WrapTclCommand $cmd
-        }
-    }
-    proc disable {} {
-        variable commandWrappers
-        foreach cmd $commandWrappers {
-            UnwrapTclCommand $cmd
-        }
-    }
-
     # Return 1 / 0 depending on whether the data can
     # be decoded with a given encoding
     proc checkEncoding {data enc} {
@@ -145,6 +88,59 @@ namespace eval tcl9migrate::runtime {
 
         return ""
     }
+}
+
+namespace eval tcl9migrate::runtime {
+    namespace path [list [namespace parent] ::tcl::unsupported]
+
+    variable commandWrappers [list file open source]
+    variable haveIcu 0
+
+    proc CommandExists {cmd} {
+        if {[info commands $cmd] eq ""} {
+            return 0
+        } else {
+            return 1
+        }
+    }
+    proc WrapTclCommand {cmd} {
+        set orig ::_tcl9migrate_$cmd
+        if {![CommandExists $orig]} {
+            rename ::$cmd $orig
+            interp alias {} ::$cmd {} [namespace current]::[string totitle $cmd]
+        }
+    }
+    proc UnwrapTclCommand {cmd} {
+        set orig ::_tcl9migrate_$cmd
+        if {[CommandExists $orig]} {
+            rename ::$cmd ""
+            rename $orig ::$cmd
+        }
+    }
+    proc enable {} {
+        uplevel #0 package require Tcl 9-
+
+        variable haveIcu
+        if {!$haveIcu} {
+            if {[catch {::source [::file join [info library] icu.tcl]} message]} {
+                warn "ICU not available ($message). Encoding detection disabled."
+                set haveIcu 0
+            } else {
+                set haveIcu 1
+            }
+        }
+        variable commandWrappers
+        foreach cmd $commandWrappers {
+            WrapTclCommand $cmd
+        }
+    }
+    proc disable {} {
+        variable commandWrappers
+        foreach cmd $commandWrappers {
+            UnwrapTclCommand $cmd
+        }
+    }
+
 
     proc formatFrameInfo {frame} {
         set message ""
@@ -332,9 +328,13 @@ proc ::tcl9migrate::install {args} {
     exit 1
 }
 
-proc ::tcl9migrate::check1 {path} {
-    # Encoding 
-
+proc ::tcl9migrate::check1 {path {encoding {}}} {
+    variable scriptDirectory
+    set nagelfarDir [file join $scriptDirectory nagelfar]
+    if {$encoding ne ""} {
+        set encoding [list -encoding $encoding]
+    }
+    puts [exec [info nameofexecutable] [file join $nagelfarDir nagelfar.tcl] -s syntaxdb90.tcl -pluginpath $nagelfarDir -plugin tcl9.tcl {*}$encoding $path]
 }
 
 proc ::tcl9migrate::check {args} {
@@ -342,11 +342,28 @@ proc ::tcl9migrate::check {args} {
     foreach pat $args {
         lappend paths {*}[glob -nocomplain $pat]
     }
+
+    # Encoding checks are only available on Tcl 9.
+    if {[catch {
+        ::tcl9migrate::runtime::enable
+        set checkEncoding 1
+    } message]} {
+        warn "Skipping file encoding checks: $message"
+        set checkEncoding 0
+    }
+
     foreach path $paths {
         if {[catch {
-            check1 $path
+            set encoding ""
+            if {$checkEncoding} {
+                set encoding [detectFileEncoding $path]
+                if {$encoding ne "" && $encoding ne "utf-8"} {
+                    warn "Encoding of $path is not UTF-8. Sourcing with encoding $encoding."
+                }
+            }
+            check1 $path $encoding
         } message]} {
-            log "Could not check $path: $message"
+            warn "Could not check $path: $message"
         }
     }
 }
