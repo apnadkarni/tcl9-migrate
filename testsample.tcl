@@ -1,5 +1,9 @@
 # tclsh c:\src\nagelfar\nagelfar.tcl -pluginpath c:/src/nagelfar/plugins -s syntaxdb90.tcl -plugin tcl9.tcl z.tcl
 
+encoding convertfrom identity abc
+string bytelength do
+foobar xx
+
 if {![catch {
         set fd [open ~/foo]
 }]} {

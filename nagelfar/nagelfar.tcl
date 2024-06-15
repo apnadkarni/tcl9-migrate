@@ -4304,7 +4304,18 @@ proc parseFile {filename} {
             $::Nagelfar(encoding) ne "system"} {
         fconfigure $ch -encoding $::Nagelfar(encoding)
     }
-    set script [read $ch]
+    if {[catch {
+        set script [read $ch]
+    }]} {
+        close $ch
+        set ch [open $filename]
+        fconfigure $ch -profile replace
+        if {[info exists ::Nagelfar(encoding)] && \
+                $::Nagelfar(encoding) ne "system"} {
+            fconfigure $ch -encoding $::Nagelfar(encoding)
+        }
+        set script [read $ch]
+    }
     close $ch
 
     # Check for Ctrl-Z

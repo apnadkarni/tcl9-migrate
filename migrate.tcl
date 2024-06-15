@@ -29,7 +29,7 @@ namespace eval tcl9migrate {
     # end is a truncated encoding sequence.
     # TODO - may be do line at a time to get around this problem
     proc detectFileEncoding {path {expectedEncoding utf-8} {sampleLength {}}} {
-        set fd [_tcl9migrate_open $path rb]
+        set fd [_tcl9orig_open $path rb]
         try {
             set data [read $fd {*}$sampleLength]
         } finally {
@@ -95,14 +95,14 @@ namespace eval tcl9migrate::runtime {
         }
     }
     proc WrapTclCommand {cmd} {
-        set orig ::_tcl9migrate_$cmd
+        set orig ::_tcl9orig_$cmd
         if {![CommandExists $orig]} {
             rename ::$cmd $orig
             interp alias {} ::$cmd {} [namespace current]::[string totitle $cmd]
         }
     }
     proc UnwrapTclCommand {cmd} {
-        set orig ::_tcl9migrate_$cmd
+        set orig ::_tcl9orig_$cmd
         if {[CommandExists $orig]} {
             rename ::$cmd ""
             rename $orig ::$cmd
@@ -116,7 +116,7 @@ namespace eval tcl9migrate::runtime {
         variable haveIcu
         if {!$haveIcu} {
             if {[catch {::source [::file join [info library] icu.tcl]} message]} {
-                warn "ICU not available ($message). Encoding detection disabled."
+                warn "ICU libraries not available ($message). Encoding detection disabled."
                 set haveIcu 0
             } else {
                 set haveIcu 1
@@ -173,7 +173,7 @@ namespace eval tcl9migrate::runtime {
 
     # Checks if path begins with a tilde and expands it after logging a warning
     proc tildeexpand {path {cmd {}}} {
-        if {[string index $path 0] eq "~" && ![::_tcl9migrate_file exists $path]} {
+        if {[string index $path 0] eq "~" && ![::_tcl9orig_file exists $path]} {
             if {$cmd ne ""} {
                 append cmd " command "
             }
@@ -181,7 +181,7 @@ namespace eval tcl9migrate::runtime {
                       " Change code to explicitly call \"file tildeexpand\"." \
                       " Expanding \"$path\". \[TILDE\]" \
                       [formatFrameInfo [info frame -2]]]
-            set path [::_tcl9migrate_file tildeexpand $path]
+            set path [::_tcl9orig_file tildeexpand $path]
         }
         return $path
     }
@@ -225,7 +225,7 @@ namespace eval tcl9migrate::runtime {
                 # Naught to do
             }
         }
-        tailcall ::_tcl9migrate_file $cmd {*}$args
+        tailcall ::_tcl9orig_file $cmd {*}$args
     }
 
     # Opens a channel with an appropriate encoding if it cannot be read with
@@ -236,7 +236,7 @@ namespace eval tcl9migrate::runtime {
             set path [tildeexpand $path]
 
             # Avoid /dev/random etc.
-            if {[::_tcl9migrate_file isfile $path] && [::_tcl9migrate_file size $path] > 0} {
+            if {[::_tcl9orig_file isfile $path] && [::_tcl9orig_file size $path] > 0} {
                 # Files are opened in system encoding by default. Ensure file
                 # readable with that encoding.
                 set encoding [detectFileEncoding $path [encoding system]]
@@ -249,7 +249,7 @@ namespace eval tcl9migrate::runtime {
         }
 
         # Actual open should not be in a catch!
-        set fd [::_tcl9migrate_open $path {*}$args]
+        set fd [::_tcl9orig_open $path {*}$args]
 
         catch {
             if {[info exists encoding]} {
@@ -283,7 +283,7 @@ namespace eval tcl9migrate::runtime {
                 warn "Error detecting encoding for $path: $message"
             }
         }
-        tailcall ::_tcl9migrate_source {*}$args
+        tailcall ::_tcl9orig_source {*}$args
     }
 
 }
@@ -291,8 +291,13 @@ namespace eval tcl9migrate::runtime {
 proc ::tcl9migrate::help {} {
     puts [string cat \
               "Usage:\n" \
+              "    [info nameofexecutable] migrate.tcl help\n" \
               "    [info nameofexecutable] migrate.tcl install ?dir?\n" \
-              "    [info nameofexecutable] migrate.tcl check ?globpath ...?"
+              "    [info nameofexecutable] migrate.tcl check ?options? ?--? ?globpath ...?\n" \
+              "Options:\n" \
+              "    --encodingsonly, -e - Only check file encodings\n" \
+              "    --migrationonly, -m - Only log messages related to migration\n" \
+              "See README.md for details."
              ]
 }
 
@@ -313,6 +318,7 @@ proc ::tcl9migrate::install {args} {
             file mkdir [file join $target nagelfar]
             file copy -force -- [info script] $target
             file copy -force -- [file join $scriptDirectory pkgIndex.tcl] $target
+            file copy -force -- README.md $target
             file copy -force -- LICENSE $target
             foreach f {nagelfar.tcl syntaxdb90.tcl tcl9.tcl COPYING} {
                 file copy -force -- [file join $scriptDirectory nagelfar $f] [file join $target nagelfar $f]
@@ -324,30 +330,52 @@ proc ::tcl9migrate::install {args} {
     exit 1
 }
 
-proc ::tcl9migrate::check1 {path {encoding {}}} {
+proc ::tcl9migrate::check1 {path migrationOnly args} {
     variable scriptDirectory
     set nagelfarDir [file join $scriptDirectory nagelfar]
-    if {$encoding ne ""} {
-        set encoding [list -encoding $encoding]
-    }
     set nagelfarMessages [split \
                               [exec [info nameofexecutable] \
                                    [file join $nagelfarDir nagelfar.tcl] \
                                    -s syntaxdb90.tcl \
                                    -pluginpath $nagelfarDir -plugin tcl9.tcl \
-                                   {*}$encoding $path] \
+                                   {*}$args $path] \
                               \n]
     foreach message $nagelfarMessages {
         if {![string match "Checking*" $message]} {
-            puts "$path $message"
+            if {!$migrationOnly || [regexp {\[[A-Z]+\]} $message]} {
+                puts "$path $message"
+            }
         }
     }
 }
 
 proc ::tcl9migrate::check {args} {
-    set paths [list ]
-    foreach pat $args {
-        lappend paths {*}[glob -nocomplain $pat]
+    variable scriptDirectory
+    set encodingsOnly 0
+    set migrationOnly 0
+
+    set nargs [llength $args]
+    for {set i 0} {$i < $nargs} {incr i} {
+        set arg [lindex $args $i]
+        switch -glob $arg {
+            --              { incr i; break }
+            -migrationonly  -
+            --migrationonly { set migrationOnly 1 }
+            -encodingsonly  -
+            --encodingsonly { set encodingsOnly 1 }
+            -*              { help; exit 1 }
+            default         { break }
+        }
+    }
+    if {$migrationOnly && $encodingsOnly} {
+        puts stderr "At most one of --encodingsonly and --migrationonly may be specified."
+    }
+
+    set globopts {}
+    set paths {}
+    foreach pat [lrange $args $i end] {
+        lappend globopts -glob $pat
+        lappend paths {*}[glob -nocomplain -- $pat]
     }
 
     # Encoding checks are only available on Tcl 9.
@@ -359,20 +387,61 @@ proc ::tcl9migrate::check {args} {
         set checkEncoding 0
     }
 
+    array set fileEncodings {}
+
+    if {$checkEncoding} {
+        set encodingErrors 0
+        foreach path $paths {
+            set encoding [detectFileEncoding $path]
+            if {$encoding ne "" && $encoding ne "utf-8"} {
+                set fileEncodings($path) $encoding
+                warn "Encoding is $encoding, not UTF8. \[ENCODING\]" $path
+                incr encodingErrors
+            }
+        }
+        if {$encodingErrors} {
+            warn "$encodingErrors non-UTF8 encoded files found. Please fix and retest. \[ENCODING\]"
+        }
+    }
+
+    set checkOpts {}
+
+    # Generate header to collect proc definitions from all files
+    # Skip if doing migration only since other errors will be skipped anyway.
+    if {!$migrationOnly && [catch {
+        close [file tempfile headerFile]
+        exec -ignorestderr -- [info nameofexecutable] \
+            [file join $scriptDirectory nagelfar nagelfar.tcl] \
+            -s syntaxdb90.tcl \
+            -header $headerFile \
+            {*}$globopts \
+            2>@1
+        lappend checkOpts -s $headerFile
+    } message]} {
+        warn "Could not generate proc syntax header: [join [lrange [split $::errorInfo \n] 0 1] { }]"
+        warn "Ignore undefined proc warnings."
+        catch {file delete $headerFile}
+        unset -nocomplain headerFile
+    }
+
     foreach path $paths {
         if {[catch {
-            set encoding ""
-            if {$checkEncoding} {
-                set encoding [detectFileEncoding $path]
-                if {$encoding ne "" && $encoding ne "utf-8"} {
-                    warn "Encoding is not UTF-8. Sourcing with encoding $encoding. \[ENCODING\]" $path
-                }
+            set opts $checkOpts
+            if {[info exists fileEncodings($path)]} {
+                lappend opts -encoding $fileEncodings($path)
             }
-            check1 $path $encoding
+            if {!$encodingsOnly} {
+                check1 $path $migrationOnly {*}$opts
+            }
         } message]} {
             warn "Could not check $path: $message"
         }
     }
+    if {[info exists headerFile]} {
+        #puts [readFile $headerFile]
+        catch {file delete $headerFile}
+    }
+    puts "\nSee README.md for \[ENCODING\], \[NSVAR\], \[OCTAL\] etc. references."
 }
 
 proc ::tcl9migrate::main {args} {
