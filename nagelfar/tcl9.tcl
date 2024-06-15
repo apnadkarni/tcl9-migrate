@@ -29,7 +29,7 @@ proc encodingStatementWords {words info} {
 
     if {$sub in "convertto convertfrom"} {
         if {$enc eq "identity"} {
-            return [list error "Encoding identity does not exist anymore"]
+            return [list error "Encoding identity does not exist anymore. \[NOSUCHENCODING\]"]
         }
     }
 }
@@ -60,10 +60,10 @@ proc anyStatementWords {words info} {
     set res {}
     foreach word $words {
         if {[regexp $RE1 $word]} {
-            lappend res warning "Tilde expansion not supported anymore"
+            lappend res warning "Tilde expansion not supported anymore. \[TILDE\]"
         }
         if {[regexp $RE2 $word]} {
-            lappend res warning "Octal number \"$word\" not supported anymore"
+            lappend res warning "Octal number \"$word\" not supported anymore. \[OCTAL\]"
         }
     }
     return $res
@@ -105,7 +105,7 @@ proc checkRelativeNamespace {var info} {
         set varNs ${ns}::[namespace qualifiers $var]
         if {![info exists ::knownNamespaces($varNs)]} {
             # Not a child namespace so should be fully qualified.
-            return [list warning "Variable $var qualified with namespace $varNs."]
+            return [list warning "Variable $var qualified with namespace $varNs. \[NSVAR\]"]
         }
     }
     return
@@ -141,7 +141,7 @@ proc lateExpr {exp info} {
     set RE {(^|\W)0\d+}
     set res {}
     if {[regexp $RE $exp]} {
-        lappend res warning "Octal format not supported"
+        lappend res warning "Octal format not supported \[OCTAL\]"
     }
     return $res
 }

@@ -1,28 +1,18 @@
-# Script to help migration from Tcl 8 to Tcl 9.
+# Utility for Tcl 8 to Tcl 9 migration.
+# See README.md for usage.
 #
-# The package has two modes of operation -
-#  - a runtime analyzer. This only runs under Tcl 9 and logs
-#    warnings to stderr for code that is invalid under Tcl 9.
-#  - a static analyzer based on Nagelfar that runs under both
-#    Tcl 8.6 and 9 logging warnings for potential incompatibilities.
-#
-# To use the runtime analyzer, include the following lines at the top
-# of your application assuming the package is installed.
-#    package require tcl9migrate
-#    tcl8migrate::installRuntime
-#
-# To use the static analyser, from the shell command line run
-#    tclsh migrate.tcl PATH PATH...
-# where PATH is a glob pattern matching files to be analysed.
+# (c) 2024 Ashok P. Nadkarni.
+# See LICENSE for license terms.
 
 namespace eval tcl9migrate {
     variable packageName tcl9migrate
     variable scriptDirectory [file dirname [info script]]
     variable packageVersion 0.1
+    variable outChannel stdout
 
-    # Prints a warning
-    proc warn {message} {
-        puts stderr "Tcl9 Migration Warning: $message"
+    proc warn {message {prefix {Migration}}} {
+        variable outChannel
+        puts $outChannel "$prefix Line ?: W $message"
     }
 
     # Return 1 / 0 depending on whether the data can
@@ -95,6 +85,7 @@ namespace eval tcl9migrate::runtime {
 
     variable commandWrappers [list file open source]
     variable haveIcu 0
+    variable enabled 0
 
     proc CommandExists {cmd} {
         if {[info commands $cmd] eq ""} {
@@ -120,6 +111,8 @@ namespace eval tcl9migrate::runtime {
     proc enable {} {
         uplevel #0 package require Tcl 9-
 
+        set [namespace parent]::outChannel stderr
+
         variable haveIcu
         if {!$haveIcu} {
             if {[catch {::source [::file join [info library] icu.tcl]} message]} {
@@ -133,12 +126,16 @@ namespace eval tcl9migrate::runtime {
         foreach cmd $commandWrappers {
             WrapTclCommand $cmd
         }
+        variable enabled
+        set enabled 1
     }
     proc disable {} {
         variable commandWrappers
         foreach cmd $commandWrappers {
             UnwrapTclCommand $cmd
         }
+        variable enabled
+        set enabled 0
     }
 
 
@@ -174,17 +171,16 @@ namespace eval tcl9migrate::runtime {
         return ""
     }
 
-    # Checks if path begins with a tilde and expands it after
-    # logging a warning
+    # Checks if path begins with a tilde and expands it after logging a warning
     proc tildeexpand {path {cmd {}}} {
         if {[string index $path 0] eq "~" && ![::_tcl9migrate_file exists $path]} {
             if {$cmd ne ""} {
                 append cmd " command "
             }
             warn [string cat "Tcl 9 ${cmd}does not do tilde expansion on paths." \
-                             " Change code to explicitly call \"file tildeexpand\"." \
-                             " Expanding \"$path\"." \
-                             [formatFrameInfo [info frame -2]]]
+                      " Change code to explicitly call \"file tildeexpand\"." \
+                      " Expanding \"$path\". \[TILDE\]" \
+                      [formatFrameInfo [info frame -2]]]
             set path [::_tcl9migrate_file tildeexpand $path]
         }
         return $path
@@ -261,8 +257,8 @@ namespace eval tcl9migrate::runtime {
                     if {$encoding ne [encoding system]} {
                         warn [string cat "File \"$path\" is not in the system encoding." \
                                   " Configuring channel for encoding $encoding." \
-                                  " This warning may be ignored if the code subsequently sets the encoding."]
-                    fconfigure $fd -encoding $encoding
+                                  " This warning may be ignored if the code subsequently sets the encoding. \[ENCODING\]"]
+                        fconfigure $fd -encoding $encoding
                     }
                 }
             }
@@ -280,7 +276,7 @@ namespace eval tcl9migrate::runtime {
                 set path [lindex $args end]
                 set tclName [detectFileEncoding $path]
                 if {$tclName ne "" && $tclName ne "utf-8"} {
-                    warn "Encoding of $path is not UTF-8. Sourcing with encoding $tclName."
+                    warn "Encoding is not UTF-8. Sourcing with encoding $tclName. \[ENCODING\]" $path
                     set args [linsert $args 0 -encoding $tclName]
                 }
             } message]} {
@@ -334,7 +330,18 @@ proc ::tcl9migrate::check1 {path {encoding {}}} {
     if {$encoding ne ""} {
         set encoding [list -encoding $encoding]
     }
-    puts [exec [info nameofexecutable] [file join $nagelfarDir nagelfar.tcl] -s syntaxdb90.tcl -pluginpath $nagelfarDir -plugin tcl9.tcl {*}$encoding $path]
+    set nagelfarMessages [split \
+                              [exec [info nameofexecutable] \
+                                   [file join $nagelfarDir nagelfar.tcl] \
+                                   -s syntaxdb90.tcl \
+                                   -pluginpath $nagelfarDir -plugin tcl9.tcl \
+                                   {*}$encoding $path] \
+                              \n]
+    foreach message $nagelfarMessages {
+        if {![string match "Checking*" $message]} {
+            puts "$path $message"
+        }
+    }
 }
 
 proc ::tcl9migrate::check {args} {
@@ -358,7 +365,7 @@ proc ::tcl9migrate::check {args} {
             if {$checkEncoding} {
                 set encoding [detectFileEncoding $path]
                 if {$encoding ne "" && $encoding ne "utf-8"} {
-                    warn "Encoding of $path is not UTF-8. Sourcing with encoding $encoding."
+                    warn "Encoding is not UTF-8. Sourcing with encoding $encoding. \[ENCODING\]" $path
                 }
             }
             check1 $path $encoding
@@ -375,6 +382,7 @@ proc ::tcl9migrate::main {args} {
         check {
             $cmd {*}$args
         }
+        help -
         default {
             help
             exit 1
