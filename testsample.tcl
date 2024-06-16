@@ -26,6 +26,7 @@ if {![catch {
 proc foo {} {open ~/xxx}
 catch {foo}
 
+tcl::mathop::+ 0123
 expr 0123
 if {0123 & 1} {}
 
@@ -34,6 +35,7 @@ namespace eval ::ns2 {variable var}
 namespace eval ::ns {
     namespace eval childns {variable var}
 
+    set creativevar xx
     # Only during static test else raises runtime errors
     if {![info exists ::tcl9migrate::runtime::enabled]} {
         # Should emit warnings

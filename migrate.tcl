@@ -330,6 +330,46 @@ proc ::tcl9migrate::install {args} {
     exit 1
 }
 
+# Filter and print messages
+proc ::tcl9migrate::printMessages {messages migrationOnly} {
+    array set namespaces {}
+    # Filter and collect meta information
+    set messages [lmap message $messages {
+        if {[regexp {N\s+MIGRATE:\s*AddNamespace\s+(.*)$} $message -> newNamespaces]} {
+            foreach ns $newNamespaces {
+                set namespaces($ns) $ns
+            }
+            continue
+        }
+        # Ignore messages other than migration-related. AFTER above check!
+        if {$migrationOnly && ![regexp {\[[A-Z]+\]} $message]} {
+            continue
+        }
+        # Ignore Nagelfar general message
+        if {[string match "Checking file*" $message]} {
+            continue
+        }
+        set message
+    }]
+
+    foreach message $messages {
+        # Depending on order of file arguments, false positives are generated
+        # if namespace is defined in a later file than the reference. Do not
+        # print these (needs namespaces thus cannot be in filter loop above)
+        if {[regexp {\s+(\S+).\s+\[RELATIVENSVAR\]} $message -> ns] &&
+            [info exists namespaces($ns)]
+        } {
+            # False positive. In fact a valid namespace
+            continue
+        }
+
+        puts $message
+    }
+
+    puts [array names namespaces]
+}
+
+# Checks a single file given by path
 proc ::tcl9migrate::check1 {path migrationOnly args} {
     variable scriptDirectory
     set nagelfarDir [file join $scriptDirectory nagelfar]
@@ -338,16 +378,27 @@ proc ::tcl9migrate::check1 {path migrationOnly args} {
                                    [file join $nagelfarDir nagelfar.tcl] \
                                    -s syntaxdb90.tcl \
                                    -pluginpath $nagelfarDir -plugin tcl9.tcl \
+                                   -H \
                                    {*}$args $path] \
                               \n]
-    foreach message $nagelfarMessages {
-        if {![string match "Checking*" $message]} {
-            if {!$migrationOnly || [regexp {\[[A-Z]+\]} $message]} {
-                puts "$path $message"
-            }
-        }
-    }
+    printMessages $nagelfarMessages $migrationOnly
 }
+
+# Checks multiple glob patterns. These should be supplied as part of
+# args along with other options
+proc ::tcl9migrate::checkGlobs {migrationOnly args} {
+    variable scriptDirectory
+    set nagelfarDir [file join $scriptDirectory nagelfar]
+    set nagelfarMessages [split \
+                              [exec [info nameofexecutable] \
+                                   [file join $nagelfarDir nagelfar.tcl] \
+                                   -s syntaxdb90.tcl \
+                                   -pluginpath $nagelfarDir -plugin tcl9.tcl \
+                                   {*}$args] \
+                              \n]
+    printMessages $nagelfarMessages $migrationOnly
+}
+
 
 proc ::tcl9migrate::check {args} {
     variable scriptDirectory
@@ -388,6 +439,7 @@ proc ::tcl9migrate::check {args} {
     }
 
     array set fileEncodings {}
+    array set foundEncodings {}
 
     if {$checkEncoding} {
         set encodingErrors 0
@@ -395,6 +447,7 @@ proc ::tcl9migrate::check {args} {
             set encoding [detectFileEncoding $path]
             if {$encoding ne "" && $encoding ne "utf-8"} {
                 set fileEncodings($path) $encoding
+                lappend foundEncodings($encoding) $path
                 warn "Encoding is $encoding, not UTF8. \[ENCODING\]" $path
                 incr encodingErrors
             }
@@ -424,19 +477,36 @@ proc ::tcl9migrate::check {args} {
         unset -nocomplain headerFile
     }
 
-    foreach path $paths {
+    # Ideally we want to check all files in one shot. However, this does
+    # not work if multiple encodings in use. In that case we need to
+    # check file by file though that generates more false positives.
+    if {[array size foundEncodings] < 2} {
+        set opts $checkOpts
+        if {[array size foundEncodings] == 1} {
+            lappend opts -encoding [lindex [array names foundEncodings] 0]
+        }
         if {[catch {
-            set opts $checkOpts
-            if {[info exists fileEncodings($path)]} {
-                lappend opts -encoding $fileEncodings($path)
-            }
-            if {!$encodingsOnly} {
-                check1 $path $migrationOnly {*}$opts
-            }
+            checkGlobs $migrationOnly {*}$globopts {*}$opts
         } message]} {
-            warn "Could not check $path: $message"
+            warn "Error: $message"
+        }
+    } else {
+        warn "Multiple encodings present. Checking single file at a time; may generate more Nagelfar false positives."
+        foreach path $paths {
+            if {[catch {
+                set opts $checkOpts
+                if {[info exists fileEncodings($path)]} {
+                    lappend opts -encoding $fileEncodings($path)
+                }
+                if {!$encodingsOnly} {
+                    check1 $path $migrationOnly {*}$opts
+                }
+            } message]} {
+                warn "Could not check $path: $message"
+            }
         }
     }
+
     if {[info exists headerFile]} {
         #puts [readFile $headerFile]
         catch {file delete $headerFile}

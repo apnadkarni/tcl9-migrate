@@ -99,7 +99,7 @@ do explicit expansion with `file home` or `file tildeexpand**.
 form `0NNN` as octal representation of integers. Replace with the
 `0oNNN** representation.
 
-**NSVAR** In Tcl 8, references to variables qualified with **relative**
+**RELATIVENSVAR** In Tcl 8, references to variables qualified with **relative**
 namespaces were looked up in the global namespace as well. For example,
 a reference to `ns2::var` from within the `::ns` namespace would
 search for `::ns::ns2::var` and if not found, look for `::ns2::var`
