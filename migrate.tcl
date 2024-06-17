@@ -269,6 +269,11 @@ namespace eval tcl9migrate::runtime {
     # Sources a file, attempting to guess an encoding if one is not
     # specified. Logs a message if encoding was not the default UTF-8
     proc Source {args} {
+        if {[llength $args] > 0} {
+            catch {
+                set args [lreplace $args end end [tildeexpand [lindex $args end]]]
+            }
+        }
         if {[llength $args] == 1} {
             # No options specified. Try to determine encoding.
             # In case of errors, just invoke as is
