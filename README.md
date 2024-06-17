@@ -80,34 +80,84 @@ error.
 
 ## Warnings
 
-Both tools may generate false positives. Any changes should be made keeping
-that in mind.
+**Both static and runtime warnings may include false positives.**
+Any changes should be made keeping that in mind.
 
 The following warnings may be emitted by the tool:
 
-**ENCODING** The encoding for the file was not that expected. The suggested
-encoding is **only a guess**. The referenced file should be converted as
-appropriate. Source files should generally be in UTF-8. For `open` the
-generated message may be ignored if there is already a following call
-to `fconfigure` to set the appropriate encoding. The runtime check
-does not detect that.
+### \[DATAENCODING\]
 
-**TILDE** Tcl 9 does not do implicit tilde expansion. Rewrite the code to
-do explicit expansion with `file home` or `file tildeexpand**.
+The encoding for a data file argument to `open` was not that expected. The expected
+encoding is the one returned by `encoding system`. The generated
+message may be ignored if there is already a following call to `fconfigure` to
+set the appropriate encoding. The runtime check does not detect that.
 
-**OCTAL** Tcl 9 expressions do not interpret strings of the
+In all cases, the suggested encoding is **only a guess** and should be verified
+by other means. The referenced file should be converted as appropriate or an
+appropriate `fconfigure` command added to set the correct encoding. On
+Unix/Linux, encoding conversion can be done with the `iconv` utility which is
+present in most distributions. It is also available for Windows as a download
+from several sites.
+
+### \[SOURCEENCODING\]
+
+The encoding for a sourced Tcl script not that expected. The expected
+encoding is either one specified with the `-encoding` option or the default
+`utf-8`. It is recommended that Tcl scripts be converted to UTF-8. If that is
+not desirable for any reason, an `-encoding` option to the `source` command
+needs to be added when sourcing those files.
+
+In all cases, the suggested encoding is **only a guess** and should be verified
+by other means. The referenced file should be converted as appropriate. On
+Unix/Linux this can be done with the `iconv` utility which is present in most
+distributions. It is also available for Windows as a download from several
+sites.
+
+### [\TILDEEXPAND\]
+
+Tcl 9 does not do implicit tilde expansion in file paths.
+For example, Tcl 8 code such as
+
+```
+set fd [open ~/tclshrc.tcl]
+```
+
+will fail with a *no such file or directory* error.
+
+Rewrite the code to do explicit expansion using
+`file tildeexpand` or `file home`.
+
+```
+set fd [open [file tildeexpand ~/tclshrc.tcl]]
+```
+
+### \[OCTAL\]
+
+Tcl 9 expressions do not interpret strings of the
 form `0NNN` as octal representation of integers. Replace with the
-`0oNNN** representation.
+`0oNNN` representation. Note that the permissions argument or
+option for the `open` and `file attributes` commands respectively
+will still accept the old octal notation but returned values will
+use the newer octal notation.
 
-**RELATIVENSVAR** In Tcl 8, references to variables qualified with **relative**
+The migration script limits its checks to use in expressions,
+(`expr`, `if` etc.) as a generalized check generates too many
+false positives as 0-prefixed numeric strings are often used as
+plain string arguments.
+
+### \[RELATIVENSVAR\]
+
+In Tcl 8, references to variables qualified with **relative**
 namespaces were looked up in the global namespace as well. For example,
 a reference to `ns2::var` from within the `::ns` namespace would
 search for `::ns::ns2::var` and if not found, look for `::ns2::var`
 as well. This is no longer the case in Tcl 9. If the `ns2` reference
 was with respect to the global namespace, the reference needs to
-be explicitly qualified as `::ns2::var**.
+be explicitly qualified as `::ns2::var`.
 
-**NOSUCHENCODING** The encoding is not available in Tcl 9.
+### \[NOSUCHENCODING\]
+
+The encoding is not available in Tcl 9.
 
 ## Credits
 

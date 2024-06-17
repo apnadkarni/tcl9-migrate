@@ -179,7 +179,7 @@ namespace eval tcl9migrate::runtime {
             }
             warn [string cat "Tcl 9 ${cmd}does not do tilde expansion on paths." \
                       " Change code to explicitly call \"file tildeexpand\"." \
-                      " Expanding \"$path\". \[TILDE\]" \
+                      " Expanding \"$path\". \[TILDEEXPAND\]" \
                       [formatFrameInfo [info frame -2]]]
             set path [::_tcl9orig_file tildeexpand $path]
         }
@@ -257,7 +257,7 @@ namespace eval tcl9migrate::runtime {
                     if {$encoding ne [encoding system]} {
                         warn [string cat "File \"$path\" is not in the system encoding." \
                                   " Configuring channel for encoding $encoding." \
-                                  " This warning may be ignored if the code subsequently sets the encoding. \[ENCODING\]"]
+                                  " This warning may be ignored if the code subsequently sets the encoding. \[DATAENCODING\]"]
                         fconfigure $fd -encoding $encoding
                     }
                 }
@@ -276,7 +276,7 @@ namespace eval tcl9migrate::runtime {
                 set path [lindex $args end]
                 set tclName [detectFileEncoding $path]
                 if {$tclName ne "" && $tclName ne "utf-8"} {
-                    warn "Encoding is not UTF-8. Sourcing with encoding $tclName. \[ENCODING\]" $path
+                    warn "Encoding is not UTF-8. Sourcing with encoding $tclName. \[SOURCEENCODING\]" $path
                     set args [linsert $args 0 -encoding $tclName]
                 }
             } message]} {
