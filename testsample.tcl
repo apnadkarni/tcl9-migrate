@@ -1,7 +1,6 @@
 # tclsh c:\src\nagelfar\nagelfar.tcl -pluginpath c:/src/nagelfar/plugins -s syntaxdb90.tcl -plugin tcl9.tcl z.tcl
 
-encoding convertfrom identity abc
-string bytelength do
+source iso8859-1.tcl
 foobar xx
 
 if {![catch {
@@ -38,6 +37,9 @@ namespace eval ::ns {
     set creativevar xx
     # Only during static test else raises runtime errors
     if {![info exists ::tcl9migrate::runtime::enabled]} {
+        encoding convertfrom identity abc
+        string bytelength do
+
         # Should emit warnings
         array exists ns2::arr
         array set ns2::arr {}

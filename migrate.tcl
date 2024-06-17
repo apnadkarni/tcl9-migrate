@@ -19,28 +19,32 @@ namespace eval tcl9migrate {
     # be decoded with a given encoding
     proc checkEncoding {data enc} {
         encoding convertfrom -profile strict -failindex x $enc $data
-        return [expr {$x < 0}]
+        if {$x < 0} {
+            return 1
+        }
+        # In case of failures ignore errors near the end as it might
+        # just be truncated data and not invalid encodings. However,
+        # Make sure at least some minimum data has been checked.
+        # Unfortunately cause of error is not available at the script
+        # level.
+        set len [string length $data]
+        if {$len > 500 && ($x >= ($len-4))} {
+            return 1
+        }
+        return 0
     }
 
-    # Detect the encoding for a file. If sampleLength is the
-    # empty string, entire file is read.
-    # NOTE: sampleLength other than "" has the problem that
-    # the encoding may be perfectly valid but the data at
-    # end is a truncated encoding sequence.
-    # TODO - may be do line at a time to get around this problem
-    proc detectFileEncoding {path {expectedEncoding utf-8} {sampleLength {}}} {
-        set fd [_tcl9orig_open $path rb]
-        try {
-            set data [read $fd {*}$sampleLength]
-        } finally {
-            close $fd
-        }
+    # Detect encoding for given data. Failures at the *end* of
+    # data are ignored on the presumption the data sample is incomplete.
+    # Returns empty string if detection fails.
+    proc detectEncoding {data {expectedEncoding utf-8}} {
         if {[checkEncoding $data $expectedEncoding]} {
             return $expectedEncoding
         }
 
         # ICU sometimes returns ISO8859-1 for UTF-8 since all bytes are always
-        # valid in 8859-1. So always check UTF-8 first
+        # valid in 8859-1. So always check UTF-8 first. It is very unlikely
+        # that non-UTF8 will match UTF-8
         if {$expectedEncoding ne "utf-8"} {
             if {[checkEncoding $data "utf-8"]} {
                 return utf-8
@@ -77,13 +81,30 @@ namespace eval tcl9migrate {
         }
 
         return ""
+
+    }
+
+    # Detect the encoding for a file. If sampleLength is the
+    # empty string, entire file is read.
+    # NOTE: sampleLength other than "" has the problem that
+    # the encoding may be perfectly valid but the data at
+    # end is a truncated encoding sequence.
+    # TODO - may be do line at a time to get around this problem
+    proc detectFileEncoding {path {expectedEncoding utf-8} {sampleLength {}}} {
+        set fd [_tcl9orig_open $path rb]
+        try {
+            set data [read $fd {*}$sampleLength]
+        } finally {
+            close $fd
+        }
+        return [detectEncoding $data $expectedEncoding]
     }
 }
 
 namespace eval tcl9migrate::runtime {
     namespace path [list [namespace parent] ::tcl::unsupported]
 
-    variable commandWrappers [list file open source]
+    variable commandWrappers [list chan close file gets open puts read source]
     variable haveIcu 0
     variable enabled 0
 
@@ -186,6 +207,23 @@ namespace eval tcl9migrate::runtime {
         return $path
     }
 
+    proc checkChannelConfiguration {chan} {
+        variable openChannels
+
+        if {[info exists openChannels($chan)]} {
+            set fileEncoding [fconfigure $chan -encoding]
+            set guessedEncoding [detectEncoding [dict get $openChannels($chan) Data] $fileEncoding]
+            if {$guessedEncoding ne "" && $guessedEncoding ne $fileEncoding} {
+                set path [dict get $openChannels($chan) Path]
+                warn [string cat "File \"$path\" is not in the configured encoding $fileEncoding." \
+                          " Configuring channel for guessed encoding $guessedEncoding." \
+                          " \[DATAENCODING\]"]
+                fconfigure $chan -encoding $guessedEncoding
+            }
+            unset openChannels($chan); # No more checks. Only do on first read
+        }
+    }
+
     # Checks if file command argument needs tilde expansion,
     # expanding it if so after a warning.
     proc File {cmd args} {
@@ -228,42 +266,111 @@ namespace eval tcl9migrate::runtime {
         tailcall ::_tcl9orig_file $cmd {*}$args
     }
 
-    # Opens a channel with an appropriate encoding if it cannot be read with
-    # configured encoding. Also prints warning if path begins with a ~ and
-    # tilde expands it on caller's behalf, again emitting a warning.
     proc Open {path args} {
+        variable openChannels
+
         if {[catch {
             set path [tildeexpand $path]
 
             # Avoid /dev/random etc.
             if {[::_tcl9orig_file isfile $path] && [::_tcl9orig_file size $path] > 0} {
-                # Files are opened in system encoding by default. Ensure file
-                # readable with that encoding.
-                set encoding [detectFileEncoding $path [encoding system]]
-                if {$encoding eq ""} {
-                    unset encoding
+                # Save up to 100000 bytes to check encoding on first read.
+                set fd [::_tcl9orig_open $path rb]
+                try {
+                    set fileSample [::_tcl9orig_read $fd 100000]
+                } finally {
+                    close $fd
                 }
             }
         } message]} {
-           warn $message
+            warn $message
         }
 
         # Actual open should not be in a catch!
         set fd [::_tcl9orig_open $path {*}$args]
-
-        catch {
-            if {[info exists encoding]} {
-                if {[fconfigure $fd -encoding] ne "binary"} {
-                    if {$encoding ne [encoding system]} {
-                        warn [string cat "File \"$path\" is not in the system encoding." \
-                                  " Configuring channel for encoding $encoding." \
-                                  " This warning may be ignored if the code subsequently sets the encoding. \[DATAENCODING\]"]
-                        fconfigure $fd -encoding $encoding
-                    }
-                }
-            }
+        if {[info exists fileSample]} {
+            dict set openChannels($fd) Data $fileSample
+            dict set openChannels($fd) Path $path
         }
         return $fd
+    }
+
+    proc Close {chan args} {
+        variable openChannels
+        unset -nocomplain openChannels($chan)
+        tailcall ::_tcl9orig_close $chan {*}$args
+    }
+
+    proc Puts {args} {
+        variable openChannels
+        set nargs [llength $args]
+        if {$args == 3} {
+            set chan [lindex $args 1]
+        } elseif {$args == 2} {
+            if {[lindex $args 0] ne "-nonewline"} {
+                set chan [lindex $args 0]
+            }
+        }
+        if {[info exists chan]} {
+            unset -nocomplain openChannels($chan)
+        }
+        tailcall ::_tcl9orig_puts {*}$args
+    }
+
+    proc Read {args} {
+        variable openChannels
+        if {[catch {
+            set nargs [llength $args]
+            if {$nargs == 1} {
+                set chan [lindex $args 0]
+            } elseif {$nargs == 2} {
+                if {[lindex $args 0] == "-nonewline"} {
+                    set chan [lindex $args 1]
+                } else {
+                    set chan [lindex $args 0]
+                }
+            }
+            if {[info exists chan]} {
+                checkChannelConfiguration $chan
+            }
+        } message]} {
+            warn "Error: $message"
+        }
+
+        tailcall ::_tcl9orig_read {*}$args
+    }
+
+    proc Gets {args} {
+        if {[catch {
+            set nargs [llength $args]
+            if {$nargs > 0} {
+                checkChannelConfiguration [lindex $args 0]
+            }
+        } message]} {
+            warn "Error: $message"
+        }
+
+        tailcall ::_tcl9orig_gets {*}$args
+    }
+
+    proc Chan {cmd args} {
+        switch -exact -- $cmd {
+            read {
+                tailcall Read {*}$args
+            }
+            gets {
+                tailcall Gets {*}$args
+            }
+            puts {
+                tailcall Puts {*}$args
+            }
+            close {
+                tailcall Close {*}$args
+            }
+            default {
+                tailcall ::_tcl9orig_chan $cmd {*}$args
+            }
+        }
     }
 
     # Sources a file, attempting to guess an encoding if one is not
@@ -370,8 +477,6 @@ proc ::tcl9migrate::printMessages {messages migrationOnly} {
 
         puts $message
     }
-
-    puts [array names namespaces]
 }
 
 # Checks a single file given by path
@@ -516,7 +621,7 @@ proc ::tcl9migrate::check {args} {
         #puts [readFile $headerFile]
         catch {file delete $headerFile}
     }
-    puts "\nSee README.md for \[ENCODING\], \[NSVAR\], \[OCTAL\] etc. references."
+    puts "\nSee README.md for \[ENCODING\], \[NSVAR\], \[OCTAL\] etc. explanations."
 }
 
 proc ::tcl9migrate::main {args} {
