@@ -200,7 +200,7 @@ namespace eval tcl9migrate::runtime {
             }
             warn [string cat "Tcl 9 ${cmd}does not do tilde expansion on paths." \
                       " Change code to explicitly call \"file tildeexpand\"." \
-                      " Expanding \"$path\". \[TILDEEXPAND\]" \
+                      " Expanding \"$path\". \[TILDEPATH\]" \
                       [formatFrameInfo [info frame -2]]]
             set path [::_tcl9orig_file tildeexpand $path]
         }
@@ -468,7 +468,7 @@ proc ::tcl9migrate::printMessages {messages migrationOnly} {
         # Depending on order of file arguments, false positives are generated
         # if namespace is defined in a later file than the reference. Do not
         # print these (needs namespaces thus cannot be in filter loop above)
-        if {[regexp {\s+(\S+).\s+\[RELATIVENSVAR\]} $message -> ns] &&
+        if {[regexp {\s+(\S+).\s+\[RELATIVENS\]} $message -> ns] &&
             [info exists namespaces($ns)]
         } {
             # False positive. In fact a valid namespace
@@ -535,6 +535,7 @@ proc ::tcl9migrate::check {args} {
     set globopts {}
     set paths {}
     foreach pat [lrange $args $i end] {
+        set pat [file join $pat]; # \ -> / as nagelfar insists
         lappend globopts -glob $pat
         lappend paths {*}[glob -nocomplain -- $pat]
     }

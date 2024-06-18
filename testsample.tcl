@@ -1,5 +1,7 @@
 # tclsh c:\src\nagelfar\nagelfar.tcl -pluginpath c:/src/nagelfar/plugins -s syntaxdb90.tcl -plugin tcl9.tcl z.tcl
 
+package require Tcl 8
+
 source iso8859-1.tcl
 foobar xx
 
@@ -15,6 +17,14 @@ if {![catch {
     close $fd
 }
 
+if {![catch {
+    exec ~/bar
+}]} {
+    close $fd
+}
+
+file exists ~/foo
+
 # Should not generate warning
 if {![catch {
     set fd [open bar/~/foo]
@@ -22,8 +32,16 @@ if {![catch {
     close $fd
 }
 
+file join ~
+catch {
+    file copy ~/nosuchfile foo
+    file copy nosuchfile ~/foo
+}
+
 proc foo {} {open ~/xxx}
 catch {foo}
+
+catch {::msgcat::mcload ~/mccatalog}
 
 tcl::mathop::+ 0123
 expr 0123
