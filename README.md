@@ -102,11 +102,11 @@ encoding. On Unix/Linux, encoding conversion can be done with the `iconv`
 utility which is present in most distributions. It is also available for
 Windows as a download from several sites.
 
-### \[NOSUCHENCODING\]
+### [NOSUCHENCODING]
 
 The referenced encoding is not available in Tcl 9.
 
-### \[OCTAL\]
+### [OCTAL]
 
 Tcl 9 expressions do not interpret strings of the form `0NNN` as octal
 representation of integers. Replace with the `0oNNN` representation. Note
@@ -120,16 +120,15 @@ etc.) as a generalized check generates too many false positives as
 
 ### [TCLPKGVER]
 
-Tcl 9 will not satisfy the Tcl version requirements included in
-a `package require` or `package present` command. Verify that script
-will work with Tcl 9 and change the referenced `package` invocation
-to permit Tcl 9. This may be done be either removing version requirements,
-adding `9` to the list of permitted versions, or terminating an existing
-version requirement with a `-` to indicate higher versions are allowed,
-e.g. "`8.6-`"
+Tcl 9 will not satisfy the Tcl version requirements included in a `package
+require` or `package present` command. Verify that script will work with Tcl
+9 and change the referenced `package` invocation to permit Tcl 9. This may
+be done be either removing version requirements, adding `9` to the list of
+permitted versions, or terminating an existing version requirement with a
+`-` to indicate higher versions are allowed, e.g. "`8.6-`"
 
 
-### \[RELATIVENS\]
+### [RELATIVENS]
 
 In Tcl 8, references to variables qualified with **relative** namespaces
 were looked up in the global namespace as well. For example, a reference to
@@ -139,7 +138,7 @@ longer the case in Tcl 9. If the `ns2` reference was with respect to the
 global namespace, the reference needs to be explicitly qualified as
 `::ns2::var`.
 
-### \[SOURCEENCODING\]
+### [SOURCEENCODING]
 
 The encoding for a sourced Tcl script not that expected. The expected
 encoding is either one specified with the `-encoding` option or the default
@@ -153,7 +152,7 @@ appropriate. On Unix/Linux this can be done with the `iconv` utility which
 is present in most distributions. It is also available for Windows as a
 download from several sites.
 
-### \[TILDEPATH\]
+### [TILDEPATH]
 
 Tcl 9 does not do implicit tilde expansion in file paths. For example, Tcl 8
 code such as
