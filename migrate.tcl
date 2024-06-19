@@ -400,17 +400,27 @@ namespace eval tcl9migrate::runtime {
 
 }
 
-proc ::tcl9migrate::help {} {
+proc ::tcl9migrate::help {args} {
     puts [string cat \
               "Usage:\n" \
-              "    [info nameofexecutable] migrate.tcl help\n" \
+              "    [info nameofexecutable] migrate.tcl help ?-detail?\n" \
               "    [info nameofexecutable] migrate.tcl install ?dir?\n" \
               "    [info nameofexecutable] migrate.tcl check ?options? ?--? ?globpath ...?\n" \
               "Options:\n" \
               "    --encodingsonly, -e - Only check file encodings\n" \
-              "    --migrationonly, -m - Only log messages related to migration\n" \
-              "See README.md for details."
+              "    --migrationonly, -m - Only log messages related to migration" \
              ]
+    if {[llength $args] == 1 && [lindex $args 0] eq "-detail"} {
+        variable scriptDirectory
+        puts ""
+        if {[file exists [file join $scriptDirectory README.md]]} {
+            set fd [open [file join $scriptDirectory README.md]]
+            puts [read $fd]
+            close $fd
+        } else {
+            puts "See https://github.com/apnadkarni/tcl9-migrate/blob/main/README.md."
+        }
+    }
 }
 
 proc ::tcl9migrate::install {args} {
@@ -634,7 +644,7 @@ proc ::tcl9migrate::main {args} {
         }
         help -
         default {
-            help
+            help {*}$args
             exit 1
         }
     }
