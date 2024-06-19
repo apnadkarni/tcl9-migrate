@@ -408,7 +408,7 @@ proc ::tcl9migrate::help {args} {
               "    [info nameofexecutable] migrate.tcl check ?options? ?--? ?globpath ...?\n" \
               "Options:\n" \
               "    --encodingsonly, -e - Only check file encodings\n" \
-              "    --migrationonly, -m - Only log messages related to migration" \
+              "    --all, -a - Log all messages from Nagelfar, not just related to migration" \
              ]
     if {[llength $args] == 1 && [lindex $args 0] eq "-detail"} {
         variable scriptDirectory
@@ -523,23 +523,27 @@ proc ::tcl9migrate::checkGlobs {migrationOnly args} {
 proc ::tcl9migrate::check {args} {
     variable scriptDirectory
     set encodingsOnly 0
-    set migrationOnly 0
+    set allMessages 0
 
     set nargs [llength $args]
     for {set i 0} {$i < $nargs} {incr i} {
         set arg [lindex $args $i]
         switch -glob $arg {
             --              { incr i; break }
-            -migrationonly  -
-            --migrationonly { set migrationOnly 1 }
+            -a    -
+            -all  -
+            --all { set allMessages 1 }
+
+            -e              -
             -encodingsonly  -
             --encodingsonly { set encodingsOnly 1 }
             -*              { help; exit 1 }
             default         { break }
         }
     }
-    if {$migrationOnly && $encodingsOnly} {
-        puts stderr "At most one of --encodingsonly and --migrationonly may be specified."
+    if {$allMessages && $encodingsOnly} {
+        puts stderr "At most one of --encodingsonly and --all may be specified."
+        exit 1
     }
 
     set globopts {}
@@ -578,11 +582,15 @@ proc ::tcl9migrate::check {args} {
         }
     }
 
+    if {$encodingsOnly} {
+        return
+    }
+
     set checkOpts {}
 
     # Generate header to collect proc definitions from all files
     # Skip if doing migration only since other errors will be skipped anyway.
-    if {!$migrationOnly && [catch {
+    if {$allMessages && [catch {
         close [file tempfile headerFile]
         exec -ignorestderr -- [info nameofexecutable] \
             [file join $scriptDirectory nagelfar nagelfar.tcl] \
@@ -601,6 +609,7 @@ proc ::tcl9migrate::check {args} {
     # Ideally we want to check all files in one shot. However, this does
     # not work if multiple encodings in use. In that case we need to
     # check file by file though that generates more false positives.
+    set migrationOnly [expr {!$allMessages}]
     if {[array size foundEncodings] < 2} {
         set opts $checkOpts
         if {[array size foundEncodings] == 1} {
@@ -619,9 +628,7 @@ proc ::tcl9migrate::check {args} {
                 if {[info exists fileEncodings($path)]} {
                     lappend opts -encoding $fileEncodings($path)
                 }
-                if {!$encodingsOnly} {
-                    check1 $path $migrationOnly {*}$opts
-                }
+                check1 $path $migrationOnly {*}$opts
             } message]} {
                 warn "Could not check $path: $message"
             }
