@@ -52,7 +52,12 @@ namespace eval ::ns2 {variable var}
 namespace eval ::ns {
     namespace eval childns {variable var}
 
+    variable nsvar
+    global globvar
+    set nsvar foo; # Should not generate warning
+    set globvar foo; # Should not generate warning
     set creativevar xx
+
     # Only during static test else raises runtime errors
     if {![info exists ::tcl9migrate::runtime::enabled]} {
         encoding convertfrom identity abc

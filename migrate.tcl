@@ -442,7 +442,7 @@ proc ::tcl9migrate::install {args} {
             file copy -force -- [file join $scriptDirectory pkgIndex.tcl] $target
             file copy -force -- README.md $target
             file copy -force -- LICENSE $target
-            foreach f {nagelfar.tcl syntaxdb90.tcl tcl9.tcl COPYING} {
+            foreach f {nagelfar.tcl syntaxdb90.tcl migratehelper.tcl COPYING} {
                 file copy -force -- [file join $scriptDirectory nagelfar $f] [file join $target nagelfar $f]
             }
             return
@@ -497,7 +497,8 @@ proc ::tcl9migrate::check1 {path migrationOnly args} {
                               [exec [info nameofexecutable] \
                                    [file join $nagelfarDir nagelfar.tcl] \
                                    -s syntaxdb90.tcl \
-                                   -pluginpath $nagelfarDir -plugin tcl9.tcl \
+                                   -pluginpath $nagelfarDir \
+                                   -plugin migratehelper.tcl \
                                    -H \
                                    {*}$args $path] \
                               \n]
@@ -513,7 +514,8 @@ proc ::tcl9migrate::checkGlobs {migrationOnly args} {
                               [exec [info nameofexecutable] \
                                    [file join $nagelfarDir nagelfar.tcl] \
                                    -s syntaxdb90.tcl \
-                                   -pluginpath $nagelfarDir -plugin tcl9.tcl \
+                                   -pluginpath $nagelfarDir \
+                                   -plugin migratehelper.tcl \
                                    {*}$args] \
                               \n]
     printMessages $nagelfarMessages $migrationOnly

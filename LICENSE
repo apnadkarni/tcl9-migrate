@@ -1,6 +1,7 @@
-NOTE: Files in the nagelfar directory are covered by the file COPYING
-in that directory. All other files are covered by the license below.
-
+NOTE: Files in the toplevel directory are covered by the BSD license below.
+Files in the nagelfar directory are covered by the file COPYING in that
+directory except for the file migratehelper.tcl which is covered by the BSD
+license below.
 
 BSD 2-Clause License
 
