@@ -365,7 +365,7 @@ proc varRead {var info} {
 }
 
 proc lateExpr {exp info} {
-    if {[regexp {(^|\W)(0\d+)} $exp - - number]} {
+    if {[regexp {(^|[-+&()/*\t\b])(0\d{3,})} $exp - - number]} {
         return [list warning "\"$number\" is treated as an octal representation in Tcl 8 and decimal in Tcl 9. \[OCTAL\]"]
     }
     return

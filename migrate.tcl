@@ -67,11 +67,11 @@ namespace eval tcl9migrate {
         }
 
         # Get possible encodings in order of confidence
-        set encodingCandidates [icu detect $data -all]
+        set encodingCandidates [::tcl::unsupported::icu detect $data -all]
         # Pick the first that has a Tcl equivalent skipping utf-8
         # as already checked above.
         foreach icuName $encodingCandidates {
-            set tclName [icu icuToTcl $icuName]
+            set tclName [::tcl::unsupported::icu icuToTcl $icuName]
             if {$tclName ne "" &&
                 $tclName ne $expectedEncoding &&
                 $tclName ne "utf-8" &&
@@ -553,7 +553,7 @@ proc ::tcl9migrate::check {args} {
     foreach pat [lrange $args $i end] {
         set pat [file join $pat]; # \ -> / as nagelfar insists
         lappend globopts -glob $pat
-        lappend paths {*}[glob -nocomplain -- $pat]
+        lappend paths {*}[glob -types f -nocomplain -- $pat]
     }
 
     # Encoding checks are only available on Tcl 9.
@@ -581,6 +581,11 @@ proc ::tcl9migrate::check {args} {
         }
         if {$encodingErrors} {
             warn "$encodingErrors non-UTF8 encoded files found. Please fix and retest. \[ENCODING\]"
+            if {[array size foundEncodings] > 1} {
+                # If there is more than one encodings, then each file has to
+                # be tested separately resulting in too many false positives.
+                #exit 1
+            }
         }
     }
 
@@ -612,7 +617,7 @@ proc ::tcl9migrate::check {args} {
     # not work if multiple encodings in use. In that case we need to
     # check file by file though that generates more false positives.
     set migrationOnly [expr {!$allMessages}]
-    if {[array size foundEncodings] < 2} {
+    if {1 || [array size foundEncodings] < 2} {
         set opts $checkOpts
         if {[array size foundEncodings] == 1} {
             lappend opts -encoding [lindex [array names foundEncodings] 0]
@@ -641,7 +646,8 @@ proc ::tcl9migrate::check {args} {
         #puts [readFile $headerFile]
         catch {file delete $headerFile}
     }
-    puts "\nSee README.md for \[ENCODING\], \[NSVAR\], \[OCTAL\] etc. explanations."
+    puts "\nSee README.md or run \"tclsh migrate.tcl help -detail\" for"
+    puts "guidance on error messages."
 }
 
 proc ::tcl9migrate::main {args} {

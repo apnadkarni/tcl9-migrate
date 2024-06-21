@@ -52,6 +52,10 @@ catch {::msgcat::mcload ~/mccatalog}
 tcl::mathop::+ 0123
 expr 0123
 if {0123 & 1} {}
+if {0123&1} {}
+if {1+0123} {}
+if {(0123&1)} {}
+expr 1e+01 ;# Should not be caught
 
 string is integer 10
 if {![info exists ::tcl9migrate::runtime::enabled]} {

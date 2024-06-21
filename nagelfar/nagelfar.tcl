@@ -7354,7 +7354,7 @@ if {![info exists gurka]} {
             }
             -glob {
                 incr i
-                set files [glob -nocomplain [lindex $argv $i]]
+                set files [glob -types f -nocomplain [lindex $argv $i]]
                 set ::Nagelfar(files) [concat $::Nagelfar(files) $files]
             }
             -trace {
