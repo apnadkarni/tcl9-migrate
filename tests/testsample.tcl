@@ -49,6 +49,30 @@ tcl::mathop::+ 0123
 expr 0123
 if {0123 & 1} {}
 
+string is integer 10
+if {![info exists ::tcl9migrate::runtime::enabled]} {
+    encoding convertfrom identity abc
+    string bytelength do
+}
+
+catch {load bar.dll}; # Should not generate warning
+catch {load bar.dll Bar}; # Should not generate warning
+catch {load foo.dll foo}
+
+catch {
+    trace variable foo r {}
+    trace vdelete foo
+    trace vinfo foo
+}
+
+catch {
+    case foo {}
+}
+
+catch {fconfigure somechan -eofchar X}; # Should not generate warning
+catch {fconfigure somechan -eofchar {}}; # Should not generate warning
+catch {fconfigure somechan -eofchar {a b}}
+catch {chan configure somechan -eofchar {a b}}
 
 namespace eval ::ns2 {variable var}
 namespace eval ::ns {
@@ -62,8 +86,6 @@ namespace eval ::ns {
 
     # Only during static test else raises runtime errors
     if {![info exists ::tcl9migrate::runtime::enabled]} {
-        encoding convertfrom identity abc
-        string bytelength do
 
         # Should emit warnings
         array exists ns2::arr
