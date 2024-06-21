@@ -9,12 +9,12 @@ proc statementWords {words info} {
     # Checks common to multiple commands
     lappend res {*}[tildeChecks $words $info]
     lappend res {*}[octalChecks $words $info]
+    lappend res {*}[globalChecks $words $info]
 
     # Checks for specific commands
     switch [lindex $words 0] {
         case {
             lappend res error "Command \"case\" is not available in Tcl 9. Use \"switch\" instead. \[UNKNOWNCOMMAND\]"
-            
         }
         chan {
             lappend res {*}[chanChecks $words $info]
@@ -72,6 +72,19 @@ proc addToKnownNamespaces {ns info} {
         return [list note "MIGRATE: AddNamespace $ns"]
     }
     return
+}
+
+# Checks related to globals
+proc globalChecks {words info} {
+    set res {}
+    # Check for tcl_platform(threaded) but be careful to not have it
+    # matched multiple times in nested blocks.
+    foreach word $words {
+        if {[regexp {^\S*tcl_platform\(threaded\)} $word]} {
+           lappend res warning "The tcl_platform global does not have a `threaded` element in Tcl 9. \[UNKNOWNVAR\]"
+        }
+    }
+    return $res
 }
 
 # Check commands for tilde usage
@@ -244,7 +257,6 @@ proc chanChecks {words info} {
     return
 }
 
-
 # Checks related to encoding configuration and commands
 proc encodingChecks {words info} {
     set words [lassign $words cmd]
@@ -326,7 +338,6 @@ proc checkRelativeNamespace {var info} {
     return
 }
 
-# Plugin Hook for variable write
 proc varWrite {var info} {
     if {[dict get $info firstpass]} {
         return
@@ -346,9 +357,11 @@ proc varWrite {var info} {
     return $res
 }
 
-# Plugin Hook for variable read
 proc varRead {var info} {
-    return [checkRelativeNamespace $var $info]
+    # Note: would have liked to check for tcl_platform(threaded) here
+    # but var only seems to contain the array name, not element
+    set res [checkRelativeNamespace $var $info]
+    return $res
 }
 
 proc lateExpr {exp info} {

@@ -4,8 +4,12 @@ catch {
     package require Tcl 8
 }
 
+catch {set tcl_platform(threaded) $tcl_platform(threaded)}
+
 source [file join [file dirname [info script]] iso8859-1.tcl]
 foobar xx
+
+puts $foo
 
 if {![catch {
         set fd [open ~/foo]
@@ -76,6 +80,9 @@ catch {chan configure somechan -eofchar {a b}}
 
 namespace eval ::ns2 {variable var}
 namespace eval ::ns {
+
+    catch {set xx $::tcl_platform(threaded)}
+
     namespace eval childns {variable var}
 
     variable nsvar

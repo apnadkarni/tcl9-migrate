@@ -213,7 +213,12 @@ The subcommands `variable`, `vinfo` and `vdelete` of the `trace` command
 are not present in Tcl 9. The `trace add variable`, `trace remove variable`
 and `trace info variable` commands can be used in their place.
 
+### [UNKNOWNVAR]
 
+The variable is not available in Tcl 9.
+
+The `tcl_platform(threaded)` variable is not present in Tcl 9. Use the
+`tcl::pkgconfig get threaded` command instead.
 
 ## Credits
 
