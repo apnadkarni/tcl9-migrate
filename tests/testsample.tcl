@@ -1,8 +1,10 @@
 # tclsh c:\src\nagelfar\nagelfar.tcl -pluginpath c:/src/nagelfar/plugins -s syntaxdb90.tcl -plugin tcl9.tcl z.tcl
 
-package require Tcl 8
+catch {
+    package require Tcl 8
+}
 
-source iso8859-1.tcl
+source [file join [file dirname [info script]] iso8859-1.tcl]
 foobar xx
 
 if {![catch {
