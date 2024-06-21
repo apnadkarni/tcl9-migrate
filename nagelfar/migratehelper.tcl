@@ -5,7 +5,6 @@
 # See LICENSE in top-level directory.
 
 proc statementWords {words info} {
-    set caller [dict get $info caller]
 
     # Checks common to multiple commands
     lappend res {*}[tildeChecks $words $info]
@@ -13,14 +12,27 @@ proc statementWords {words info} {
 
     # Checks for specific commands
     switch [lindex $words 0] {
+        case {
+            lappend res error "Command \"case\" is not available in Tcl 9. Use \"switch\" instead. \[UNKNOWNCOMMAND\]"
+            
+        }
         encoding {
             lappend res {*}[encodingChecks $words $info]
+        }
+        load {
+            lappend res {*}[loadChecks $words $info]
+        }
+        namespace {
+            lappend res {*}[namespaceChecks $words $info]
         }
         package {
             lappend res {*}[packageChecks $words $info]
         }
-        namespace {
-            lappend res {*}[namespaceChecks $words $info]
+        string {
+            lappend res {*}[stringChecks $words $info]
+        }
+        trace {
+            lappend res {*}[traceChecks $words $info]
         }
         global -
         variable {
@@ -153,7 +165,15 @@ proc collectVariableDeclarations {words info} {
     return
 }
 
-# Package command
+# load command
+proc loadChecks {words info} {
+    if {[llength $words] > 2 && [string is lower [string index [lindex $words 2] 0]]} {
+        return [list warning "Load command initialization function name must start with upper case letter in Tcl 9. \[LOADCASE\]"]
+    }
+    return
+}
+
+# package command
 proc packageChecks {words info} {
     set vers [lassign $words cmd sub pkg]
     switch $sub {
@@ -212,14 +232,36 @@ proc encodingChecks {words info} {
     return $res
 }
 
-# Any command check
-proc anyStatementWords {words info} {
-    set words [lassign $words cmd]
-    lappend res {*}[tildeChecks $cmd $words $info]
-    lappend res {*}[octalChecks $cmd $words $info]
-    return $res
+# Checks related to string command
+proc stringChecks {words info} {
+    switch [lindex $words 1] {
+        "bytelength" {
+            return [list error "Command \"string bytelength\" is not available in Tcl 9. \[UNKNOWNCOMMAND\]"]
+        }
+        "is" {
+            if {[lindex $words 2] eq "integer"} {
+                return [list note "Unlike Tcl 8, \"string is integer\" does not raise an error if value does not fit in 32 bits or contains underscores. \[STRINGISINT\]"]
+            }
+        }
+    }
+    return
 }
 
+# Checks related to trace command
+proc traceChecks {words info} {
+    switch [lindex $words 1] {
+        variable {
+            return [list error "Tcl 9 does not have the \"trace [lindex $words 1]\" command. Use \"trace add variable\" instead. \[UNKNOWNCOMMAND\]"]
+        }
+        vdelete {
+            return [list error "Tcl 9 does not have the \"trace [lindex $words 1]\" command. Use \"trace remove variable\" instead. \[UNKNOWNCOMMAND\]"]
+        }
+        vinfo {
+            return [list error "Tcl 9 does not have the \"trace [lindex $words 1]\" command. Use \"trace info variable\" instead. \[UNKNOWNCOMMAND\]"]
+        }
+    }
+    return
+}
 
 # Detect possible change variable name resolution rules between Tcl 8 and Tcl 9.
 # The former includes global namespace in search path, the latter does not. So

@@ -86,7 +86,7 @@ Any changes should be made keeping that in mind.
 
 The following warnings may be emitted by the tool:
 
-### \[DATAENCODING\]
+### [DATAENCODING]
 
 The encoding for a data file argument to `open` was not that expected. The
 expected encoding is the one returned by `encoding system`. The generated
@@ -99,6 +99,12 @@ appropriate or an appropriate `fconfigure` command added to set the correct
 encoding. On Unix/Linux, encoding conversion can be done with the `iconv`
 utility which is present in most distributions. It is also available for
 Windows as a download from several sites.
+
+### [LOADCASE]
+
+The initialization function name argument passed to the `load` command
+as the second (optional) argument must start with an upper case letter
+in Tcl 9.
 
 ### [NOSUCHENCODING]
 
@@ -116,6 +122,14 @@ The migration script limits its checks to use in expressions, (`expr`, `if`
 etc.) as a generalized check generates too many false positives as
 0-prefixed numeric strings are often used as plain string arguments.
 
+### [STRINGISINT]
+
+Unlike Tcl 8, the `string is integer` command will accept integers
+that do not fit in 32-bits. Furthermore, the command will accept and
+ignore `_` as a separator within numeric strings. Therefore any use
+of the command should be checked that it is not used as a 32-bit range
+check or for validation where the string should be strictly numeric.
+
 ### [TCLPKGVER]
 
 Tcl 9 will not satisfy the Tcl version requirements included in a `package
@@ -124,7 +138,6 @@ require` or `package present` command. Verify that script will work with Tcl
 be done be either removing version requirements, adding `9` to the list of
 permitted versions, or terminating an existing version requirement with a
 `-` to indicate higher versions are allowed, e.g. "`8.6-`"
-
 
 ### [RELATIVENS]
 
@@ -179,6 +192,21 @@ namespace. To remove ambiguities and compatibility issues, it is strongly
 recommended to declare variables explicitly using either `global` or
 `variable` depending on whether the intent was to modify a global or
 namespace variable.
+
+### [UNKNOWNCOMMAND]
+
+The command is not available in Tcl 9.
+
+The `string bytelength` command is not present in Tcl 9.
+
+The `case` command is not present in Tcl 9. The `switch` command can be
+used in its place.
+
+The subcommands `variable`, `vinfo` and `vdelete` of the `trace` command
+are not present in Tcl 9. The `trace add variable`, `trace remove variable`
+and `trace info variable` commands can be used in their place.
+
+
 
 ## Credits
 
