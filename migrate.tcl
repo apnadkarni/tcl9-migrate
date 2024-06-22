@@ -104,7 +104,7 @@ namespace eval tcl9migrate {
 namespace eval tcl9migrate::runtime {
     namespace path [list [namespace parent] ::tcl::unsupported]
 
-    variable commandWrappers [list cd chan close file gets load open puts read source]
+    variable commandWrappers [list cd chan close exec file gets load open puts read source]
     variable haveIcu 0
     variable enabled 0
 
@@ -229,6 +229,13 @@ namespace eval tcl9migrate::runtime {
             lset args end [tildeexpand [lindex $args 0]]
         }
         tailcall ::_tcl9orig_cd {*}$args
+    }
+
+    proc Exec {args} {
+        if {[llength $args] > 0} {
+            lset args 0 [tildeexpand [lindex $args 0]]
+        }
+        tailcall ::_tcl9orig_exec {*}$args
     }
 
     proc Load {args} {
