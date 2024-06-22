@@ -66,6 +66,7 @@ if {![info exists ::tcl9migrate::runtime::enabled]} {
 catch {load bar.dll}; # Should not generate warning
 catch {load bar.dll Bar}; # Should not generate warning
 catch {load foo.dll foo}
+catch {load -global foo.dll foo}
 
 catch {
     trace variable foo r {}

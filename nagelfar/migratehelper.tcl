@@ -186,8 +186,30 @@ proc collectVariableDeclarations {words info} {
 
 # load command
 proc loadChecks {words info} {
-    if {[llength $words] > 2 && [string is lower [string index [lindex $words 2] 0]]} {
-        return [list warning "Load command initialization function name must start with upper case letter in Tcl 9. \[LOADCASE\]"]
+    set nargs [llength $words]
+    for {set i 1} {$i < $nargs} {incr i} {
+        switch [lindex $words $i] {
+            -global -
+            -lazy {
+                continue
+            }
+            -- {
+                incr i
+                break
+            }
+            default {
+                break
+            }
+        }
+    }
+    # $i is first argument after options which would be path of
+    # the shared library. Next argument, if present, is init function name
+    if {[incr i] < $nargs} {
+        # The name of the Init function must be title case
+        if {[string is lower [string index [lindex $words $i] 0]]} {
+            puts "$i, $nargs \[XXXXXX]"
+            return [list warning "Load command initialization function name \"[lindex $words $i]\" must start with upper case letter in Tcl 9. \[LOADCASE\]"]
+        }
     }
     return
 }

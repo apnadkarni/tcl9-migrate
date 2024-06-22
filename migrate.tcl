@@ -104,7 +104,7 @@ namespace eval tcl9migrate {
 namespace eval tcl9migrate::runtime {
     namespace path [list [namespace parent] ::tcl::unsupported]
 
-    variable commandWrappers [list chan close file gets open puts read source]
+    variable commandWrappers [list cd chan close file gets load open puts read source]
     variable haveIcu 0
     variable enabled 0
 
@@ -224,6 +224,46 @@ namespace eval tcl9migrate::runtime {
         }
     }
 
+    proc Cd {args} {
+        if {[llength $args] == 1} {
+            lset args end [tildeexpand [lindex $args 0]]
+        }
+        tailcall ::_tcl9orig_cd {*}$args
+    }
+
+    proc Load {args} {
+        set nargs [llength $args]
+        for {set i 0} {$i < $nargs} {incr i} {
+            switch [lindex $args $i] {
+                -global -
+                -lazy {
+                    continue
+                }
+                -- {
+                    incr i
+                    break
+                }
+                default {
+                    break
+                }
+            }
+        }
+        if {$i < $nargs} {
+            # $i is first argument after options which would be path of
+            # the shared library.
+            lset args $i [tildeexpand [lindex $args $i]]
+            incr i
+            if {$i < $nargs} {
+                # The name of the Init function must be title case
+                if {[string is lower [string index [lindex $args $i] 0]]} {
+                    warn "Load command initialization function name \"[lindex $args $i]\" must start with upper case letter in Tcl 9. \[LOADCASE\]"
+                    lset args $i [string totitle [lindex $args $i]]
+                }
+            }
+        }
+        tailcall ::_tcl9orig_load {*}$args
+    }
+
     # Checks if file command argument needs tilde expansion,
     # expanding it if so after a warning.
     proc File {cmd args} {
@@ -235,7 +275,7 @@ namespace eval tcl9migrate::runtime {
                 # First argument if present is the name
                 if {[llength $args]} {
                     # Replace first arg with expanded form
-                    ledit args 0 0 [tildeexpand [lindex $args 0] "file $cmd"]
+                    lset args  0 [tildeexpand [lindex $args 0] "file $cmd"]
                 }
             }
             copy -
