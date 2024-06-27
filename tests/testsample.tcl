@@ -29,8 +29,6 @@ if {![catch {
     close $fd
 }
 
-file exists ~/foo
-
 # Should not generate warning
 if {![catch {
     set fd [open bar/~/foo]
@@ -38,10 +36,15 @@ if {![catch {
     close $fd
 }
 
-file join ~
+file exists ~/foo
+file join ~ foo
+file join foo ~
 catch {
     file copy ~/nosuchfile foo
     file copy nosuchfile ~/foo
+}
+oo::class create C {
+    method m {} {file join ~ foo}
 }
 
 proc foo {} {open ~/xxx}

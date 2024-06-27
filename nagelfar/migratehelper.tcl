@@ -91,6 +91,7 @@ proc globalChecks {words info} {
 proc tildeChecks {words info} {
     set words [lassign $words cmd]
     set paths {}
+    set res {}
     switch -exact -- $cmd {
         file {
             switch -exact -- [lindex $words 0] {
@@ -101,9 +102,9 @@ proc tildeChecks {words info} {
                     # First argument if present is the name
                     lappend paths [lindex $words 1]
                 }
+                join -
                 copy -
                 delete -
-                join -
                 link -
                 mkdir -
                 rename {
@@ -143,11 +144,10 @@ proc tildeChecks {words info} {
             }
         }
     }
-    set res {}
     set tildeRE {^(2>|>)?\s*~}
     foreach path $paths {
         if {[regexp $tildeRE $path]} {
-            lappend res warning "Path \"$path\" begins with a tilde. Tcl 9 \"$cmd\" does not do tilde expansion. \[TILDEPATH\]"
+            lappend res warning "Path \"$path\" begins with a tilde. \"$cmd\" does not do tilde expansion in Tcl 9. \[TILDEPATH\]"
         }
     }
     return $res
@@ -372,7 +372,7 @@ proc varWrite {var info} {
         if {$ns ne "" && $ns ne "::" && ![string match *::* $var]} {
             # Inside a namespace and unqualified name
             if {![info exists ::knownNamespaceVars($ns)] || ![dict exists $::knownNamespaceVars($ns) $var]} {
-                lappend res warning "Variable $var possibly set without a variable or global declaration within namespace $ns. \[UNDECLARED\]"
+                lappend res warning "Variable \"$var\" possibly set without a variable or global declaration within namespace $ns. \[UNDECLARED\]"
             }
         }
     }
