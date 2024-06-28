@@ -253,27 +253,42 @@ proc octalChecks {words info} {
     return $res
 }
 
+# Check arguments passed to fconfigure and chan configure.
+proc configureChecks {cmd arguments} {
+    # CHAN ...
+    set res {}
+    if {[llength $arguments] > 2} {
+        foreach {opt optval} [lrange $arguments 1 end] {
+            # The eval is because Nagelfar passes the string argument including
+            # any enclosing braces or quotes.
+            set optval [eval subst -nocommands -novariables -nobackslashes $optval]
+            switch $opt {
+                "-eofchar" {
+                    if {[string length $optval] > 1} {
+                        lappend res error "The value \"$optval\" supplied to the \"$cmd $opt\" option must be a single character. \[EOFCHAR\]"
+                    }
+                }
+                "-encoding" {
+                    if {$optval in {binary {}}} {
+                        lappend res error "The value \"$optval\" is not valid for the \"$cmd $opt\" option. \[CHANENCODING\]"
+                    }
+                }
+            }
+        }
+    }
+    return $res
+}
+
 # Check fconfigure commands
 proc fconfigureChecks {words info} {
-    if {[llength $words] == 4 &&
-        [lindex $words 2] eq "-eofchar" &&
-        [string length [lindex $words 3]] > 1
-    } {
-        return [list warning "The value supplied to the `fconfigure -eofchar` option must be a single character. \[EOFCHAR\]"]
-    }
-    return
+    return [configureChecks "fconfigure" [lrange $words 1 end]]
 }
 
 # Check chan commands
 proc chanChecks {words info} {
     switch [lindex $words 1] {
         configure {
-            if {[llength $words] == 4 &&
-                [lindex $words 2] eq "-eofchar" &&
-                [string length [lindex $words 3]] > 1
-            } {
-                return [list warning "The value supplied to the `chan -eofchar` option must be a single character. \[EOFCHAR\]"]
-            }
+            return [configureChecks "chan configure" [lrange $words 2 end]]
         }
     }
     return

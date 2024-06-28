@@ -118,6 +118,12 @@ encoding. On Unix/Linux, encoding conversion can be done with the `iconv`
 utility which is present in most distributions. It is also available for
 Windows as a download from several sites.
 
+### [CHANENCODING]
+
+The `fconfigure -encoding` and `chan configure -encoding` options
+do not accept `binary` or the empty string as valid values. To configure
+for binary I/O, use `-translation binary` instead.
+
 ### [EOFCHAR]
 
 The `fconfigure -eofchar` and `chan configure -eofchar` option values

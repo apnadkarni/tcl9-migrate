@@ -83,8 +83,17 @@ catch {
 
 catch {fconfigure somechan -eofchar X}; # Should not generate warning
 catch {fconfigure somechan -eofchar {}}; # Should not generate warning
+catch {fconfigure somechan -encoding}; # Should not generate warning
+catch {fconfigure somechan -encoding utf-8}; # Should not generate warning
+catch {chan configure somechan -encoding utf-8}; # Should not generate warning
 catch {fconfigure somechan -eofchar {a b}}
 catch {chan configure somechan -eofchar {a b}}
+catch {fconfigure somechan -encoding binary}
+catch {fconfigure somechan -encoding {}}
+catch {chan configure somechan -encoding binary}
+catch {chan configure somechan -encoding {}}
+catch {chan configure somechan -encoding binary -eofchar {a b}}
+catch {chan configure somechan -eofchar {a b} -encoding binary}
 
 namespace eval ::ns2 {variable var}
 namespace eval ::ns {
