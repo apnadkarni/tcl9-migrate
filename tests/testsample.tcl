@@ -12,6 +12,10 @@ catch {set tcl_platform(threaded) $tcl_platform(threaded)}
 source [file join [file dirname [info script]] iso8859-1.tcl]
 foobar xx
 
+catch {
+    cd ~/foo
+}
+
 if {![catch {
         set fd [open ~/foo]
 }]} {

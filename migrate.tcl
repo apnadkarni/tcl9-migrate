@@ -10,9 +10,17 @@ namespace eval tcl9migrate {
     variable packageVersion 0.1
     variable outChannel stdout
 
-    proc warn {message {prefix {Migration}}} {
+    proc warn {message {frame {}}} {
+        set prefix Migration
+        set line ?
+        if {[dict exists $frame file]} {
+            set prefix [dict get $frame file]
+            if {[dict exists $frame line]} {
+                set line [dict get $frame line]
+            }
+        }
         variable outChannel
-        puts $outChannel "$prefix Line ?: W $message"
+        puts $outChannel "$prefix Line $line: W $message"
     }
 
     # Return 1 / 0 depending on whether the data can
@@ -166,6 +174,9 @@ namespace eval tcl9migrate::runtime {
 
 
     proc formatFrameInfo {frame} {
+        if {![dict exists $frame type]} {
+            return ""
+        }
         set message ""
         switch -exact -- [dict get $frame type] {
             source {
@@ -198,16 +209,18 @@ namespace eval tcl9migrate::runtime {
     }
 
     # Checks if path begins with a tilde and expands it after logging a warning
-    proc tildeexpand {path {cmd {}}} {
+    proc tildeexpand {path cmd {frame {}}} {
         if {[string index $path 0] eq "~" && ![::_tcl9orig_file exists $path]} {
             if {$cmd ne ""} {
-                append cmd " command "
+                set cmdText "Command \"$cmd\" in "
             }
+            append cmdText "Tcl 9"
             set newPath [::_tcl9orig_file tildeexpand $path]
-            warn [string cat "Tcl 9 ${cmd}does not do tilde expansion on paths." \
+            warn [string cat "$cmdText does not do tilde expansion on paths." \
                       " Change code to explicitly call \"file tildeexpand\"." \
                       " Replacing \"$path\" at runtime with \"$newPath\". \[TILDEPATH\]" \
-                      [formatFrameInfo [info frame -2]]]
+                      ] \
+                $frame
             set path $newPath
         }
         return $path
@@ -232,14 +245,14 @@ namespace eval tcl9migrate::runtime {
 
     proc Cd {args} {
         if {[llength $args] == 1} {
-            lset args end [tildeexpand [lindex $args 0]]
+            lset args end [tildeexpand [lindex $args 0] cd [info frame -1]]
         }
         tailcall ::_tcl9orig_cd {*}$args
     }
 
     proc Exec {args} {
         if {[llength $args] > 0} {
-            lset args 0 [tildeexpand [lindex $args 0]]
+            lset args 0 [tildeexpand [lindex $args 0] exec [info frame -1]]
         }
         tailcall ::_tcl9orig_exec {*}$args
     }
@@ -264,13 +277,13 @@ namespace eval tcl9migrate::runtime {
         if {$i < $nargs} {
             # $i is first argument after options which would be path of
             # the shared library.
-            lset args $i [tildeexpand [lindex $args $i] load]
+            lset args $i [tildeexpand [lindex $args $i] load [info frame -1]]
             incr i
             if {$i < $nargs} {
                 # The name of the Init function must be title case
                 if {[string is lower [string index [lindex $args $i] 0]]} {
                     set newName [string totitle [lindex $args $i]]
-                    warn "Load command initialization function name \"[lindex $args $i]\" must start with upper case letter in Tcl 9. Replacing at runtime with \"$newName\". \[LOADCASE\]"
+                    warn "Load command initialization function name \"[lindex $args $i]\" must start with upper case letter in Tcl 9. Replacing at runtime with \"$newName\". \[LOADCASE\]" [info frame -1]
                     lset args $i $newName
                 }
             }
@@ -298,7 +311,7 @@ namespace eval tcl9migrate::runtime {
         if {$i < $nargs} {
             # $i is first argument after options which would be path of
             # the shared library.
-            lset args $i [tildeexpand [lindex $args $i] unload]
+            lset args $i [tildeexpand [lindex $args $i] unload [info frame -1]]
         }
         tailcall ::_tcl9orig_unload {*}$args
     }
@@ -315,7 +328,7 @@ namespace eval tcl9migrate::runtime {
                 # First argument if present is the name
                 if {[llength $args]} {
                     # Replace first arg with expanded form
-                    lset args  0 [tildeexpand [lindex $args 0] "file $cmd"]
+                    lset args  0 [tildeexpand [lindex $args 0] "file $cmd" [info frame -1]]
                 }
             }
             copy -
@@ -326,14 +339,14 @@ namespace eval tcl9migrate::runtime {
                 # Some arguments may be options, all others paths. Only check
                 # if beginning with tilde. Option will not begin with tilde
                 set args [lmap arg $args {
-                    tildeexpand $arg "file $cmd"
+                    tildeexpand $arg "file $cmd" [info frame -1]
                 }]
             }
             join {
                 # Cannot tilde expand as semantics will not be same.
                 # Just warn, throw away result
                 foreach arg $args {
-                    tildeexpand $arg "file $cmd"
+                    tildeexpand $arg "file $cmd" [info frame -1]
                 }
             }
             home -
@@ -356,7 +369,7 @@ namespace eval tcl9migrate::runtime {
                 }
                 if {$pkg in {Tcl Tk} && [llength $vers]} {
                     if {![package vsatisfies 9 {*}$vers]} {
-                        warn "The command \"package $cmd $args\" will fail in Tcl 9. Replacing version requirement to be 9. \[TCLPKGVER\]"
+                        warn "The command \"package $cmd $args\" will fail in Tcl 9. Replacing version requirement to be 9. \[TCLPKGVER\]" [info frame -1]
                         lset args end 9
                     }
                 }
@@ -374,7 +387,7 @@ namespace eval tcl9migrate::runtime {
         variable openChannels
 
         if {[catch {
-            set path [tildeexpand $path open]
+            set path [tildeexpand $path open [info frame -1]]
 
             # Avoid /dev/random etc.
             if {[::_tcl9orig_file isfile $path] && [::_tcl9orig_file size $path] > 0} {
@@ -482,7 +495,7 @@ namespace eval tcl9migrate::runtime {
     proc Source {args} {
         if {[llength $args] > 0} {
             catch {
-                set args [lreplace $args end end [tildeexpand [lindex $args end]]]
+                set args [lreplace $args end end [tildeexpand [lindex $args end] source [info frame -1]]]
             }
         }
         if {[llength $args] == 1} {
@@ -492,11 +505,11 @@ namespace eval tcl9migrate::runtime {
                 set path [lindex $args end]
                 set tclName [detectFileEncoding $path]
                 if {$tclName ne "" && $tclName ne "utf-8"} {
-                    warn "Encoding is not UTF-8. Sourcing with encoding $tclName. \[SOURCEENCODING\]" $path
+                    warn "Encoding of sourced file \"$path\" is not UTF-8. Sourcing with encoding $tclName. \[SOURCEENCODING\]" [info frame -1]
                     set args [linsert $args 0 -encoding $tclName]
                 }
             } message]} {
-                warn "Error detecting encoding for $path: $message"
+                warn "Error detecting encoding for $path: $message" [info frame -1]
             }
         }
         tailcall ::_tcl9orig_source {*}$args
@@ -509,7 +522,7 @@ namespace eval tcl9migrate::runtime {
                 add -
                 remove {
                     set args [lmap arg $args {
-                        tildeexpand $arg "tcl::tm::path $cmd"
+                        tildeexpand $arg "tcl::tm::path $cmd" [info frame -1]
                     }]
                 }
             }
@@ -517,7 +530,7 @@ namespace eval tcl9migrate::runtime {
         }
         proc roots {paths} {
             set paths [lmap arg $paths {
-                tildeexpand $arg "tcl::tm::roots"
+                tildeexpand $arg "tcl::tm::roots" [info frame -1]
             }]
             tailcall ::_tcl9orig_tcl::tm::roots $paths
         }
@@ -699,7 +712,7 @@ proc ::tcl9migrate::check {args} {
             if {$encoding ne "" && $encoding ne "utf-8"} {
                 set fileEncodings($path) $encoding
                 lappend foundEncodings($encoding) $path
-                warn "Encoding is $encoding, not UTF8. \[ENCODING\]" $path
+                warn "Encoding of sourced file \"$path\" is $encoding, not UTF-8. \[ENCODING\]"
                 incr encodingErrors
             }
         }
@@ -792,7 +805,11 @@ proc ::tcl9migrate::main {args} {
 if {[info exists ::argv0] &&
     [file dirname [file normalize [file join [info script] ...]]] eq [file dirname [file normalize [file join $::argv0 ...]]]
 } {
-    ::tcl9migrate::main {*}$argv
+    if {[catch {
+        ::tcl9migrate::main {*}$argv
+    } emsg]} {
+        puts $::errorInfo
+    }
 } else {
     package provide $::tcl9migrate::packageName $::tcl9migrate::packageVersion
 }
