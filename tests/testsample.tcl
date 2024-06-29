@@ -53,6 +53,10 @@ catch {foo}
 
 catch {::msgcat::mcload ~/mccatalog}
 
+tcl::tm::path add ~/foo ~/bar
+tcl::tm::path remove ~/bar ~/foo
+tcl::tm::roots {~ ~/foo}
+
 tcl::mathop::+ 0123
 expr 0123
 if {0123 & 1} {}

@@ -126,8 +126,10 @@ proc tildeChecks {words info} {
             switch -exact -- [lindex $words 0] {
                 add -
                 remove { set paths [lrange $words 1 end]}
-                roots { set paths $words }
             }
+        }
+        tcl::tm::roots {
+            set paths [lindex $words 0 0]
         }
         zipfs {
             switch -exact -- [lindex $words 0] {

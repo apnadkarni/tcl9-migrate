@@ -104,7 +104,10 @@ namespace eval tcl9migrate {
 namespace eval tcl9migrate::runtime {
     namespace path [list [namespace parent] ::tcl::unsupported]
 
-    variable commandWrappers [list cd chan close exec file gets load open package puts read source]
+    variable commandWrappers {
+        cd chan close exec file gets load open package puts read source
+        tcl::tm::path tcl::tm::roots
+    }
     variable haveIcu 0
     variable enabled 0
 
@@ -143,6 +146,8 @@ namespace eval tcl9migrate::runtime {
                 set haveIcu 1
             }
         }
+        # Force loading of tcl::tm
+        catch {tcl::tm::path}
         variable commandWrappers
         foreach cmd $commandWrappers {
             WrapTclCommand $cmd
@@ -198,11 +203,12 @@ namespace eval tcl9migrate::runtime {
             if {$cmd ne ""} {
                 append cmd " command "
             }
+            set newPath [::_tcl9orig_file tildeexpand $path]
             warn [string cat "Tcl 9 ${cmd}does not do tilde expansion on paths." \
                       " Change code to explicitly call \"file tildeexpand\"." \
-                      " Replacing at runtime with \"$path\". \[TILDEPATH\]" \
+                      " Replacing \"$path\" at runtime with \"$newPath\". \[TILDEPATH\]" \
                       [formatFrameInfo [info frame -2]]]
-            set path [::_tcl9orig_file tildeexpand $path]
+            set path $newPath
         }
         return $path
     }
@@ -342,7 +348,7 @@ namespace eval tcl9migrate::runtime {
         variable openChannels
 
         if {[catch {
-            set path [tildeexpand $path]
+            set path [tildeexpand $path open]
 
             # Avoid /dev/random etc.
             if {[::_tcl9orig_file isfile $path] && [::_tcl9orig_file size $path] > 0} {
@@ -470,6 +476,26 @@ namespace eval tcl9migrate::runtime {
         tailcall ::_tcl9orig_source {*}$args
     }
 
+    namespace eval Tcl::tm {
+        namespace path ::tcl9migrate::runtime
+        proc path {cmd args} {
+            switch $cmd {
+                add -
+                remove {
+                    set args [lmap arg $args {
+                        tildeexpand $arg "tcl::tm::path $cmd"
+                    }]
+                }
+            }
+            tailcall ::_tcl9orig_tcl::tm::path $cmd {*}$args
+        }
+        proc roots {paths} {
+            set paths [lmap arg $paths {
+                tildeexpand $arg "tcl::tm::roots"
+            }]
+            tailcall ::_tcl9orig_tcl::tm::roots $paths
+        }
+    }
 }
 
 proc ::tcl9migrate::help {args} {
