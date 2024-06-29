@@ -126,10 +126,9 @@ for binary I/O, use `-translation binary` instead.
 
 ### [EOFCHAR]
 
-The `fconfigure -eofchar` and `chan configure -eofchar` option values
-must be a single character which is the EOF character on input. Tcl 9
-does not support EOF characters on output. They must be explicitly
-written.
+The `fconfigure -eofchar` and `chan configure -eofchar` option values must
+be a single character which specifies the EOF character on input. Tcl 9 does
+not support EOF characters on output. They must be explicitly written.
 
 ### [LOADCASE]
 
@@ -163,12 +162,13 @@ check or for validation where the string should be strictly numeric.
 
 ### [TCLPKGVER]
 
-Tcl 9 will not satisfy the Tcl version requirements included in a `package
-require` or `package present` command. Verify that script will work with Tcl
-9 and change the referenced `package` invocation to permit Tcl 9. This may
-be done be either removing version requirements, adding `9` to the list of
-permitted versions, or terminating an existing version requirement with a
-`-` to indicate higher versions are allowed, e.g. "`8.6-`"
+Tcl 9 will not satisfy the Tcl version requirements included in a
+`package require` or `package present` command. Verify that script will
+work with Tcl 9 and change the referenced `package` invocation to permit
+Tcl 9. This may be done be either removing version requirements, adding `9`
+to the list of permitted versions, or terminating an existing version
+requirement with a `-` to indicate higher versions are allowed, e.g.
+`8.6-`.
 
 ### [RELATIVENS]
 

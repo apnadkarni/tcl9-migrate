@@ -207,7 +207,6 @@ proc loadChecks {words info} {
     if {[incr i] < $nargs} {
         # The name of the Init function must be title case
         if {[string is lower [string index [lindex $words $i] 0]]} {
-            puts "$i, $nargs \[XXXXXX]"
             return [list warning "Load command initialization function name \"[lindex $words $i]\" must start with upper case letter in Tcl 9. \[LOADCASE\]"]
         }
     }

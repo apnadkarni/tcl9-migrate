@@ -104,7 +104,7 @@ namespace eval tcl9migrate {
 namespace eval tcl9migrate::runtime {
     namespace path [list [namespace parent] ::tcl::unsupported]
 
-    variable commandWrappers [list cd chan close exec file gets load open puts read source]
+    variable commandWrappers [list cd chan close exec file gets load open package puts read source]
     variable haveIcu 0
     variable enabled 0
 
@@ -200,7 +200,7 @@ namespace eval tcl9migrate::runtime {
             }
             warn [string cat "Tcl 9 ${cmd}does not do tilde expansion on paths." \
                       " Change code to explicitly call \"file tildeexpand\"." \
-                      " Expanding \"$path\". \[TILDEPATH\]" \
+                      " Replacing at runtime with \"$path\". \[TILDEPATH\]" \
                       [formatFrameInfo [info frame -2]]]
             set path [::_tcl9orig_file tildeexpand $path]
         }
@@ -263,8 +263,9 @@ namespace eval tcl9migrate::runtime {
             if {$i < $nargs} {
                 # The name of the Init function must be title case
                 if {[string is lower [string index [lindex $args $i] 0]]} {
-                    warn "Load command initialization function name \"[lindex $args $i]\" must start with upper case letter in Tcl 9. \[LOADCASE\]"
-                    lset args $i [string totitle [lindex $args $i]]
+                    set newName [string totitle [lindex $args $i]]
+                    warn "Load command initialization function name \"[lindex $args $i]\" must start with upper case letter in Tcl 9. Replacing at runtime with \"$newName\". \[LOADCASE\]"
+                    lset args $i $newName
                 }
             }
         }
@@ -311,6 +312,30 @@ namespace eval tcl9migrate::runtime {
             }
         }
         tailcall ::_tcl9orig_file $cmd {*}$args
+    }
+
+    proc Package {cmd args} {
+        set vers [lassign $args pkg]
+        switch $cmd {
+            present -
+            require {
+                if {$pkg eq "-exact"} {
+                    set vers [lassign $vers pkg]
+                }
+                if {$pkg in {Tcl Tk} && [llength $vers]} {
+                    if {![package vsatisfies 9 {*}$vers]} {
+                        warn "The command \"package $cmd $args\" will fail in Tcl 9. Replacing version requirement to be 9. \[TCLPKGVER\]"
+                        lset args end 9
+                    }
+                }
+            }
+            vsatisfies {
+                # TODO - should this check and generate warning? Not clear
+                # as it could be simply doing a polyfill or similar based
+                # on versions.
+            }
+        }
+        tailcall ::_tcl9orig_package $cmd {*}$args
     }
 
     proc Open {path args} {
