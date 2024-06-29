@@ -57,6 +57,13 @@ tcl::tm::path add ~/foo ~/bar
 tcl::tm::path remove ~/bar ~/foo
 tcl::tm::roots {~ ~/foo}
 
+catch {
+    load ~/foo.dll
+}
+catch {
+    unload ~/foo.dll
+}
+
 tcl::mathop::+ 0123
 expr 0123
 if {0123 & 1} {}

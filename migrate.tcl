@@ -106,7 +106,7 @@ namespace eval tcl9migrate::runtime {
 
     variable commandWrappers {
         cd chan close exec file gets load open package puts read source
-        tcl::tm::path tcl::tm::roots
+        tcl::tm::path tcl::tm::roots unload
     }
     variable haveIcu 0
     variable enabled 0
@@ -264,7 +264,7 @@ namespace eval tcl9migrate::runtime {
         if {$i < $nargs} {
             # $i is first argument after options which would be path of
             # the shared library.
-            lset args $i [tildeexpand [lindex $args $i]]
+            lset args $i [tildeexpand [lindex $args $i] load]
             incr i
             if {$i < $nargs} {
                 # The name of the Init function must be title case
@@ -277,6 +277,32 @@ namespace eval tcl9migrate::runtime {
         }
         tailcall ::_tcl9orig_load {*}$args
     }
+
+    proc Unload {args} {
+        set nargs [llength $args]
+        for {set i 0} {$i < $nargs} {incr i} {
+            switch [lindex $args $i] {
+                -nocomplain -
+                -keeplibrary {
+                    continue
+                }
+                -- {
+                    incr i
+                    break
+                }
+                default {
+                    break
+                }
+            }
+        }
+        if {$i < $nargs} {
+            # $i is first argument after options which would be path of
+            # the shared library.
+            lset args $i [tildeexpand [lindex $args $i] unload]
+        }
+        tailcall ::_tcl9orig_unload {*}$args
+    }
+
 
     # Checks if file command argument needs tilde expansion,
     # expanding it if so after a warning.
