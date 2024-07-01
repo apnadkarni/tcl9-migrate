@@ -1,14 +1,16 @@
 # Migration tool for Tcl 9
 
-This software is intended to help identify changes needed for porting
+This software is intended to help identify changes needed for migrating
 Tcl 8 scripts to Tcl 9. It has two modes of operation:
 
 - a static analyzer based on Nagelfar that runs under both Tcl 8.6 and 9
   logging warnings for potential incompatibilities.
 
-- a runtime analyzer. This is intended to only run under Tcl 9. It attempts
-  to fix up invalid code (e.g. tilde references) at run time allowing the
-  program to continue to run but logs warnings to stderr.
+- a runtime analyzer. This is intended to only run under Tcl 9. It attempts to
+  fix up invalid code (e.g. encodings, tilde references) at run time allowing
+  the program to continue to run but logs warnings to stderr.
+
+See the **Warnings** section for the checks implemented by the tool.
 
 It is expected the runtime analyzer is run only after fixing the
 incompatibilities reported by the static analyzer.
@@ -54,7 +56,7 @@ are not in UTF-8 encodings. These should be converted to UTF-8 encoding
 appropriate `-encoding` option. Note false positives are possible as the
 tool only checks file encoding and not how they are sourced. (Note: the
 runtime checks on the other hand, do check actual source encodings and
-generate fewer false positives.** **This step must be done with a Tcl 9
+generate fewer false positives. **This step must be done with a Tcl 9
 tclsh.**
 
 2. Run without any options to report any required changes related to
@@ -62,6 +64,11 @@ migration. Check and fix if necessary any reported issues.
 
 3. Optionally, run with the `--all` option to report **all** warnings and
 error messages from Nagelfar including those not related to migration.
+
+To minimize false positives, particularly with reference to variable
+declarations, it is recommended that related source files be checked in one
+step and not individually. At the same time, the tool is not exactly a speed
+demon, so some patience is needed on large source bases.
 
 ## Runtime checks
 

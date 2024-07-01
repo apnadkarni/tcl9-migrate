@@ -260,9 +260,21 @@ proc configureChecks {cmd arguments} {
     set res {}
     if {[llength $arguments] > 2} {
         foreach {opt optval} [lrange $arguments 1 end] {
-            # The eval is because Nagelfar passes the string argument including
-            # any enclosing braces or quotes.
-            set optval [eval subst -nocommands -novariables -nobackslashes $optval]
+            # Nagelfar passes the raw word. Extract the literal value.
+            if {[regexp {^\[.*\]$} $optval] ||
+                [string match "{\*}*" $optval] ||
+                [string index $optval 0] eq "\$"
+            } {
+                # Argument is [command] or {*} or $var. Skip
+                continue
+            }
+            # Remove "" and {} delmiters
+            set first [string index $optval 0]
+            set last [string index $optval end]
+            if {($first eq "\"" && $last eq $first) ||
+                ($first eq "\{" && $last eq "\}")} {
+                set optval [string range $optval 1 end-1]
+            }
             switch $opt {
                 "-eofchar" {
                     if {[string length $optval] > 1} {
@@ -323,7 +335,7 @@ proc stringChecks {words info} {
         }
         "is" {
             if {[lindex $words 2] eq "integer"} {
-                return [list note "Unlike Tcl 8, \"string is integer\" does not raise an error if value does not fit in 32 bits or contains underscores. \[STRINGISINT\]"]
+                return [list note "Semantics of \"string is integer\" are different between Tcl 8 and Tcl 9. \[STRINGISINT\]"]
             }
         }
     }
