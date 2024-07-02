@@ -376,7 +376,7 @@ proc checkRelativeNamespace {var info} {
     # Note final output filter will check if namespaces are valid
     # and filter out false positives.
     if {[regexp {^[a-zA-Z0-9_]+::} $var]} {
-        # Check if it is a child namespace
+        # Check if it is a child namespace. If so ok, otherwise log warning.
         set varNs ${ns}::[namespace qualifiers $var]
         if {![info exists ::knownNamespaces($varNs)]} {
             # Not a child namespace so should be fully qualified.
@@ -399,7 +399,14 @@ proc varWrite {var info} {
         set ns [dict get $info namespace]
         if {$ns ne "" && $ns ne "::" && ![string match *::* $var]} {
             # Inside a namespace and unqualified name
-            if {![info exists ::knownNamespaceVars($ns)] || ![dict exists $::knownNamespaceVars($ns) $var]} {
+            # The variable may be an array element like A(foo) in which
+            # case we need to check both A and A(foo)
+            if {![regexp {^([[:alnum:]_:]*)(\(.*\))?$} $var - arrayVar]} {
+                set arrayVar $var
+            }
+            if {![info exists ::knownNamespaceVars($ns)] ||
+                (![dict exists $::knownNamespaceVars($ns) $var] &&
+                 ![dict exists $::knownNamespaceVars($ns) $arrayVar])} {
                 lappend res warning "Variable \"$var\" possibly set without a variable or global declaration within namespace $ns. \[UNDECLARED\]"
             }
         }

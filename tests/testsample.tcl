@@ -119,10 +119,13 @@ namespace eval ::ns {
     namespace eval childns {variable var}
 
     variable nsvar
+    variable nsarray
     global globvar
     set nsvar foo; # Should not generate warning
+    set nsarray(x) y ; # Should not generate warning
     set globvar foo; # Should not generate warning
     set creativevar xx
+    set creativearray(x) y
 
     # Only during static test else raises runtime errors
     if {![info exists ::tcl9migrate::runtime::enabled]} {
@@ -159,6 +162,7 @@ namespace eval ::ns {
         info exists ns2::var
         gets stdin ns2::var
         vwait ns2::var
+
     }
 
 
