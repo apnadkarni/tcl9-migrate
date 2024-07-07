@@ -574,12 +574,12 @@ proc ::tcl9migrate::install {args} {
         if {[lindex [file system $path] 0] eq "native"} {
             puts stdout "Installing in $path"
             set target [file join $path $packageName]
-            file mkdir [file join $target nagelfar]
+            file mkdir [file join $target nagelfar packagedb]
             file copy -force -- [info script] $target
             file copy -force -- [file join $scriptDirectory pkgIndex.tcl] $target
             file copy -force -- README.md $target
             file copy -force -- LICENSE $target
-            foreach f {nagelfar.tcl syntaxdb90.tcl migratehelper.tcl COPYING} {
+            foreach f {nagelfar.tcl syntaxdb90.tcl migratehelper.tcl packagedb/snitdb.tcl COPYING} {
                 file copy -force -- [file join $scriptDirectory nagelfar $f] [file join $target nagelfar $f]
             }
             return

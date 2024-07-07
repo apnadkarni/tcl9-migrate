@@ -127,6 +127,10 @@ namespace eval ::ns {
     set creativevar xx
     set creativearray(x) y
 
+    set tcl_platform(platform)
+    set x $tcl_platform(platform)
+    set tcl_platform(platform) $tcl_platform(platform)
+
     # Only during static test else raises runtime errors
     if {![info exists ::tcl9migrate::runtime::enabled]} {
 
@@ -201,7 +205,9 @@ namespace eval ::ns {
         info exists ns2::var
         gets stdin ns2::var
         vwait ns2::var
+
     }
+
 }
 
 # Should NOT emit warnings at global level

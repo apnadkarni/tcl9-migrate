@@ -388,16 +388,12 @@ proc checkRelativeNamespace {var info} {
     return
 }
 
-proc varWrite {var info} {
-    if {[dict get $info firstpass]} {
-        return
-    }
-    set res [checkRelativeNamespace $var $info]
-
+proc checkUnqualifiedReference {var info op} {
+    set res {}
     set caller [dict get $info caller]
     if {$caller eq ""} {
         set ns [dict get $info namespace]
-        if {$ns ne "" && $ns ne "::" && ![string match *::* $var]} {
+        if {$ns ne "" && $ns ne "::" && ![string match snit::* $ns] && ![string match *::* $var]} {
             # Inside a namespace and unqualified name
             # The variable may be an array element like A(foo) in which
             # case we need to check both A and A(foo)
@@ -407,17 +403,28 @@ proc varWrite {var info} {
             if {![info exists ::knownNamespaceVars($ns)] ||
                 (![dict exists $::knownNamespaceVars($ns) $var] &&
                  ![dict exists $::knownNamespaceVars($ns) $arrayVar])} {
-                lappend res warning "Variable \"$var\" possibly set without a variable or global declaration within namespace $ns. \[UNDECLARED\]"
+                lappend res warning "Variable \"$var\" possibly referenced ($op) without a variable or global declaration within namespace $ns. \[UNDECLARED\]"
             }
         }
     }
     return $res
 }
 
+proc varWrite {var info} {
+    if {[dict get $info firstpass]} {
+        return
+    }
+    lappend res {*}[checkRelativeNamespace $var $info]
+    lappend res {*}[checkUnqualifiedReference $var $info write]
+    return $res
+}
+
 proc varRead {var info} {
-    # Note: would have liked to check for tcl_platform(threaded) here
-    # but var only seems to contain the array name, not element
-    set res [checkRelativeNamespace $var $info]
+    # Note: var only contains array name, not array element on
+    # $v but full name on "set v"
+
+    lappend res {*}[checkRelativeNamespace $var $info]
+    lappend res {*}[checkUnqualifiedReference $var $info read]
     return $res
 }
 
