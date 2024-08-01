@@ -73,6 +73,20 @@ By default files larger than 100000 bytes are skipped. Specify the
 --sizelimit option to change this value. To disable size limits,
 specify the value as `0`.
 
+### Ignoring false positives
+
+You can use Nagelfar's inline comment [facility](https://nagelfar.sourceforge.net/inlinecomments.html)
+to reduce the number of false positives produced. To prevent
+a line from being reported by the tool, add the following line
+before the line in question.
+
+```
+##nagelfar ignore
+```
+
+See the above Nagelfar documentation link for additional features
+related to reducing false positives.
+
 ## Runtime checks
 
 The runtime checks are intended to be used with Tcl 9. To enable the

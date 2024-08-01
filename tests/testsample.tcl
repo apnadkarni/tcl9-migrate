@@ -77,6 +77,8 @@ if {(0123&1)} {}
 expr 1e+01 ;# Should not be caught
 
 string is integer 10
+##nagelfar ignore
+string is integer 10
 if {![info exists ::tcl9migrate::runtime::enabled]} {
     encoding convertfrom identity abc
     string bytelength do
