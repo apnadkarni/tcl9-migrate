@@ -5080,7 +5080,7 @@ proc doCheck {} {
                     echo "Checking file $f" 1
                 }
                 if {$::Nagelfar(sizeLimit) > 0 && [file size $f] > $::Nagelfar(sizeLimit)} {
-                    echo "Skipping $f as it exceeds size limit $::Nagelfar(sizeLimit). See -sizelimit option. \[MIGRATETOOL\]"
+                    echo "$f: Line ?: W Skipping file as it exceeds size limit $::Nagelfar(sizeLimit). See -sizelimit option. \[MIGRATETOOL\]"
                 } else {
                     parseFile $f
                 }

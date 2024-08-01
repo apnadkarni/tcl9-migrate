@@ -734,7 +734,7 @@ proc ::tcl9migrate::check {args} {
             if {$encoding ne "" && $encoding ne "utf-8"} {
                 set fileEncodings($path) $encoding
                 lappend foundEncodings($encoding) $path
-                warn "Encoding of sourced file \"$path\" is $encoding, not UTF-8. \[ENCODING\]"
+                warn "Encoding of file is $encoding, not UTF-8. \[ENCODING\]" [list file $path]
                 incr encodingErrors
             }
         }
