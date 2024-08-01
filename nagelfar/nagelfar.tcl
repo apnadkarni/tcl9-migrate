@@ -5079,7 +5079,11 @@ proc doCheck {} {
                 if {!$::Nagelfar(quiet)} {
                     echo "Checking file $f" 1
                 }
-                parseFile $f
+                if {$::Nagelfar(sizeLimit) > 0 && [file size $f] > $::Nagelfar(sizeLimit)} {
+                    echo "Skipping $f as it exceeds size limit $::Nagelfar(sizeLimit). See -sizelimit option. \[MIGRATETOOL\]"
+                } else {
+                    parseFile $f
+                }
             } else {
                 errEcho "Could not find file '$f'"
             }
@@ -7021,6 +7025,7 @@ proc StartUp {} {
     set ::Nagelfar(tabSub) [string repeat " " 8]
     set ::Nagelfar(tabMap) [list \t $::Nagelfar(tabSub)]
     set ::Nagelfar(lineLen) 0
+    set ::Nagelfar(sizeLimit) 0
     set ::Nagelfar(procs) {}
     set ::Nagelfar(stop) 0
     set ::Nagelfar(trace) ""
@@ -7339,6 +7344,15 @@ if {![info exists gurka]} {
                     exit
                 }
                 set ::Nagelfar(lineLen) $arg
+            }
+            -sizelimit {
+                incr i
+                set arg [lindex $argv $i]
+                if {![string is integer -strict $arg] || $arg < 0} {
+                    puts "Bad sizelimit value '$arg'"
+                    exit
+                }
+                set ::Nagelfar(sizeLimit) $arg
             }
             -tab {
                 incr i

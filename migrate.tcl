@@ -544,8 +544,9 @@ proc ::tcl9migrate::help {args} {
               "    [info nameofexecutable] migrate.tcl install ?dir?\n" \
               "    [info nameofexecutable] migrate.tcl check ?options? ?--? ?globpath ...?\n" \
               "Options:\n" \
+              "    --all, -a - Log all messages from Nagelfar, not just related to migration\n" \
               "    --encodingsonly, -e - Only check file encodings\n" \
-              "    --all, -a - Log all messages from Nagelfar, not just related to migration" \
+              "    --sizelimit N, -s N - Skip files bigger than N bytes. If N is 0, no limit. Default 100000\n" \
              ]
     if {[llength $args] == 1 && [lindex $args 0] eq "-detail"} {
         variable scriptDirectory
@@ -629,6 +630,7 @@ proc ::tcl9migrate::printMessages {messages migrationOnly} {
 # Checks a single file given by path
 proc ::tcl9migrate::check1 {path migrationOnly args} {
     variable scriptDirectory
+    variable fileSizeLimit
     set nagelfarDir [file join $scriptDirectory nagelfar]
     set nagelfarMessages [split \
                               [exec [info nameofexecutable] \
@@ -636,6 +638,7 @@ proc ::tcl9migrate::check1 {path migrationOnly args} {
                                    -s syntaxdb90.tcl \
                                    -pluginpath $nagelfarDir \
                                    -plugin migratehelper.tcl \
+                                   -sizelimit $fileSizeLimit \
                                    -H \
                                    {*}$args $path] \
                               \n]
@@ -646,6 +649,8 @@ proc ::tcl9migrate::check1 {path migrationOnly args} {
 # args along with other options
 proc ::tcl9migrate::checkGlobs {migrationOnly args} {
     variable scriptDirectory
+    variable fileSizeLimit
+
     set nagelfarDir [file join $scriptDirectory nagelfar]
     set nagelfarMessages [split \
                               [exec [info nameofexecutable] \
@@ -653,16 +658,20 @@ proc ::tcl9migrate::checkGlobs {migrationOnly args} {
                                    -s syntaxdb90.tcl \
                                    -pluginpath $nagelfarDir \
                                    -plugin migratehelper.tcl \
+                                   -sizelimit $fileSizeLimit \
                                    {*}$args] \
                               \n]
+
     printMessages $nagelfarMessages $migrationOnly
 }
 
 
 proc ::tcl9migrate::check {args} {
     variable scriptDirectory
+    variable fileSizeLimit
     set encodingsOnly 0
     set allMessages 0
+    set fileSizeLimit 100000
 
     set nargs [llength $args]
     for {set i 0} {$i < $nargs} {incr i} {
@@ -676,10 +685,23 @@ proc ::tcl9migrate::check {args} {
             -e              -
             -encodingsonly  -
             --encodingsonly { set encodingsOnly 1 }
+            -s -
+            -sizelimit -
+            --sizelimit     {
+                if {[incr i] >= $nargs} {
+                    puts stderr "No value supplied for option $arg."
+                    exit 1
+                }
+                set fileSizeLimit [lindex $args $i]
+                if {[incr fileSizeLimit 0] < 0} {
+                    puts stderr "Size option value for option $arg must be positive."
+                }
+            }
             -*              { help; exit 1 }
             default         { break }
         }
     }
+
     if {$allMessages && $encodingsOnly} {
         puts stderr "At most one of --encodingsonly and --all may be specified."
         exit 1
@@ -740,6 +762,7 @@ proc ::tcl9migrate::check {args} {
             [file join $scriptDirectory nagelfar nagelfar.tcl] \
             -s syntaxdb90.tcl \
             -header $headerFile \
+            -sizelimit $fileSizeLimit \
             {*}$globopts \
             2>@1
         lappend checkOpts -s $headerFile
@@ -783,8 +806,7 @@ proc ::tcl9migrate::check {args} {
         #puts [readFile $headerFile]
         catch {file delete $headerFile}
     }
-    puts "\nSee README.md or run \"tclsh migrate.tcl help -detail\" for"
-    puts "guidance on error messages."
+    puts "\nSee README.md or run \"tclsh migrate.tcl help -detail\" for guidance on error messages."
 }
 
 proc ::tcl9migrate::main {args} {
