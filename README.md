@@ -230,9 +230,9 @@ overwriting of a global variable of the same name if one existed. This was
 already a source of unintended modification of globals and deprecated. In
 Tcl 9, the behavior has changed to not modify variables in the global
 namespace. To remove ambiguities and compatibility issues, it is strongly
-recommended to declare variables explicitly using either `global` or
-`variable` depending on whether the intent was to modify a global or
-namespace variable.
+recommended to declare variables explicitly with `variable` or qualify
+it with `::` depending on whether the intent was to modify a namespace
+variable or a global.
 
 ### [UNKNOWNCOMMAND]
 

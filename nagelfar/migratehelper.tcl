@@ -403,7 +403,7 @@ proc checkUnqualifiedReference {var info op} {
             if {![info exists ::knownNamespaceVars($ns)] ||
                 (![dict exists $::knownNamespaceVars($ns) $var] &&
                  ![dict exists $::knownNamespaceVars($ns) $arrayVar])} {
-                lappend res warning "Variable \"$var\" possibly referenced ($op) without a variable or global declaration within namespace $ns. \[UNDECLARED\]"
+                lappend res warning "Variable \"$var\" possibly referenced ($op) without a variable declaration within namespace $ns. \[UNDECLARED\]"
             }
         }
     }
