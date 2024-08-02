@@ -20,7 +20,6 @@ namespace eval tcl9migrate {
             }
         }
         variable outChannel
-        puts out:$outChannel
         puts $outChannel "$prefix Line $line: $severity $message"
     }
     proc printWarning {message {frame {}}} {
@@ -760,6 +759,8 @@ proc ::tcl9migrate::check {args} {
     # Encoding checks are only available on Tcl 9.
     if {[catch {
         ::tcl9migrate::runtime::enable
+        variable outChannel
+        set outChannel stdout
         set checkEncoding 1
     } message]} {
         warn "Skipping file encoding checks: $message"
