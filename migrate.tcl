@@ -10,7 +10,7 @@ namespace eval tcl9migrate {
     variable packageVersion 0.3
     variable outChannel stdout
 
-    proc warn {message {frame {}}} {
+    proc printMessage {severity message {frame {}}} {
         set prefix Migration
         set line ?
         if {[dict exists $frame file]} {
@@ -20,7 +20,17 @@ namespace eval tcl9migrate {
             }
         }
         variable outChannel
-        puts $outChannel "$prefix Line $line: W $message"
+        puts out:$outChannel
+        puts $outChannel "$prefix Line $line: $severity $message"
+    }
+    proc printWarning {message {frame {}}} {
+        printMessage W $message $frame
+    }
+    proc warn args {
+        tailcall printWarning {*}$args
+    }
+    proc printError  {message {frame {}}} {
+        printMessage E $message $frame
     }
 
     # Return 1 / 0 depending on whether the data can
@@ -546,7 +556,8 @@ proc ::tcl9migrate::help {args} {
               "Options:\n" \
               "    --all, -a - Log all messages from Nagelfar, not just related to migration\n" \
               "    --encodingsonly, -e - Only check file encodings\n" \
-              "    --sizelimit N, -s N - Skip files bigger than N bytes. If N is 0, no limit. Default 100000\n" \
+              "    --severity LEVEL, -s LEVEL - Skip message below severity level LEVEL (note, warning, error)\n" \
+              "    --sizelimit N, -l N - Skip files bigger than N bytes. If N is 0, no limit. Default 100000\n" \
              ]
     if {[llength $args] == 1 && [lindex $args 0] eq "-detail"} {
         variable scriptDirectory
@@ -631,6 +642,8 @@ proc ::tcl9migrate::printMessages {messages migrationOnly} {
 proc ::tcl9migrate::check1 {path migrationOnly args} {
     variable scriptDirectory
     variable fileSizeLimit
+    variable severityLevel
+
     set nagelfarDir [file join $scriptDirectory nagelfar]
     set nagelfarMessages [split \
                               [exec [info nameofexecutable] \
@@ -639,6 +652,7 @@ proc ::tcl9migrate::check1 {path migrationOnly args} {
                                    -pluginpath $nagelfarDir \
                                    -plugin migratehelper.tcl \
                                    -sizelimit $fileSizeLimit \
+                                   -severity $severityLevel \
                                    -H \
                                    {*}$args $path] \
                               \n]
@@ -650,6 +664,7 @@ proc ::tcl9migrate::check1 {path migrationOnly args} {
 proc ::tcl9migrate::checkGlobs {migrationOnly args} {
     variable scriptDirectory
     variable fileSizeLimit
+    variable severityLevel
 
     set nagelfarDir [file join $scriptDirectory nagelfar]
     set nagelfarMessages [split \
@@ -659,6 +674,7 @@ proc ::tcl9migrate::checkGlobs {migrationOnly args} {
                                    -pluginpath $nagelfarDir \
                                    -plugin migratehelper.tcl \
                                    -sizelimit $fileSizeLimit \
+                                   -severity $severityLevel \
                                    {*}$args] \
                               \n]
 
@@ -669,9 +685,11 @@ proc ::tcl9migrate::checkGlobs {migrationOnly args} {
 proc ::tcl9migrate::check {args} {
     variable scriptDirectory
     variable fileSizeLimit
+    variable severityLevel
     set encodingsOnly 0
     set allMessages 0
     set fileSizeLimit 100000
+    set severityLevel N
 
     set nargs [llength $args]
     for {set i 0} {$i < $nargs} {incr i} {
@@ -685,7 +703,8 @@ proc ::tcl9migrate::check {args} {
             -e              -
             -encodingsonly  -
             --encodingsonly { set encodingsOnly 1 }
-            -s -
+
+            -l         -
             -sizelimit -
             --sizelimit     {
                 if {[incr i] >= $nargs} {
@@ -695,6 +714,29 @@ proc ::tcl9migrate::check {args} {
                 set fileSizeLimit [lindex $args $i]
                 if {[incr fileSizeLimit 0] < 0} {
                     puts stderr "Size option value for option $arg must be positive."
+                }
+            }
+
+            -s        -
+            -severity -
+            --severity {
+                if {[incr i] >= $nargs} {
+                    puts stderr "No value supplied for option $arg."
+                    exit 1
+                }
+                set severityLevel [lindex $args $i]
+                switch [string tolower $severityLevel] {
+                    w -
+                    warn -
+                    warning { set severityLevel W}
+                    n -
+                    note { set severityLevel N}
+                    e -
+                    error { set severityLevel E}
+                    default {
+                        puts stderr "Invalid value $severityLevel for option $arg. Must be one of note, warning or error."
+                        exit 1
+                    }
                 }
             }
             -*              { help; exit 1 }

@@ -73,12 +73,34 @@ By default files larger than 100000 bytes are skipped. Specify the
 --sizelimit option to change this value. To disable size limits,
 specify the value as `0`.
 
-### Ignoring false positives
+### Reducing message volume
+
+The static checker may generate a large number of false positives,
+particularly for command like `string is` and `glob`. Aside from
+`egrep -v` there are a couple of mechanisms for filtering these.
+
+#### Filter by severity
+
+Messages are classified into three severity levels:
+
+* `N` - notes a difference in behavior between Tcl 8 and 9 that may or may not
+be an issue.
+
+* `W` - warns that the line in question is *likely* to result in a bug
+or unexpected behaviour.
+
+* `E` - flags lines that are definitely errors in Tcl 9 and should be fixed.
+
+The `--severity` option for the `check` command can be used to filter
+based on severity level.
+
+#### Ignoring false positives
 
 You can use Nagelfar's inline comment [facility](https://nagelfar.sourceforge.net/inlinecomments.html)
 to reduce the number of false positives produced. To prevent
 a line from being reported by the tool, add the following line
-before the line in question.
+before the line in question. Note exactly two `#` characters
+followed by `nagelfar` with no intervening space.
 
 ```
 ##nagelfar ignore
@@ -86,6 +108,10 @@ before the line in question.
 
 See the above Nagelfar documentation link for additional features
 related to reducing false positives.
+
+This facility is useful when the code actually takes different
+paths based on the Tcl version and you do not want the Tcl 8 path
+to be flagged.
 
 ## Runtime checks
 
