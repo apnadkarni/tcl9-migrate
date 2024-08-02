@@ -25,6 +25,9 @@ proc statementWords {words info} {
         fconfigure {
             lappend res {*}[fconfigureChecks $words $info]
         }
+        format {
+            lappend res {*}[formatChecks $words $info]
+        }
         glob {
             lappend res {*}[globChecks $words $info]
         }
@@ -36,6 +39,9 @@ proc statementWords {words info} {
         }
         package {
             lappend res {*}[packageChecks $words $info]
+        }
+        scan {
+            lappend res {*}[scanChecks $words $info]
         }
         string {
             lappend res {*}[stringChecks $words $info]
@@ -187,6 +193,25 @@ proc collectVariableDeclarations {words info} {
     }
 
     return
+}
+
+proc formatSpecifierChecks spec {
+    # Not really a perfect check
+    set matches [regexp -inline -all {%[duioxXb]} $spec]
+    if {[llength $matches]} {
+        return [list note "The format and scan specifiers [join $matches ,] truncate to 32-bits in Tcl 9. \[FMTSPEC\]"]
+    }
+    return
+}
+
+# format command
+proc formatChecks {words info} {
+    return [formatSpecifierChecks [lindex $words 1]]
+}
+
+# format command
+proc scanChecks {words info} {
+    return [formatSpecifierChecks [lindex $words 2]]
 }
 
 # glob command

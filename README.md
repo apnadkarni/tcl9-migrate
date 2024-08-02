@@ -180,6 +180,12 @@ The `fconfigure -eofchar` and `chan configure -eofchar` option values must
 be a single character which specifies the EOF character on input. Tcl 9 does
 not support EOF characters on output. They must be explicitly written.
 
+### [FMTSPEC]
+
+In Tcl 8, if a size modifier was not present for an integer `format`
+or `scan`, the value would be truncated to the word size of the platform.
+In Tcl 9, the value is always truncated to 32 bits irrespective of platform.
+
 ### [GLOBCOMPLAIN]
 
 Unlike Tcl 8, the `glob` command in Tcl 9 will not raise an error if no files

@@ -116,6 +116,11 @@ catch {chan configure somechan -eofchar {a b} -encoding binary}
 glob nosuch*
 glob -nocomplain nosuch*
 
+format "%u%d%x%X" 1 2 3 4
+format "%lu%lld%hx%LX" 1 2 3 4 ; # Should not generate warning
+scan 1234 "%u%d%x%X"
+scan 1234 "%lu%lld%hx%LX"; # Should not generate warning
+
 namespace eval ::ns2 {variable var}
 namespace eval ::ns {
 
