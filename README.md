@@ -154,6 +154,13 @@ The `fconfigure -eofchar` and `chan configure -eofchar` option values must
 be a single character which specifies the EOF character on input. Tcl 9 does
 not support EOF characters on output. They must be explicitly written.
 
+### [GLOBCOMPLAIN]
+
+Unlike Tcl 8, the `glob` command in Tcl 9 will not raise an error if no files
+match the specified pattern. Code that expects an error to be raised in such
+instances will need to be changed to explicitly check for an empty return list.
+To keep code portable between Tcl 8 and 9, add the `-nocomplain` option.
+
 ### [LOADCASE]
 
 The initialization function name argument passed to the `load` command

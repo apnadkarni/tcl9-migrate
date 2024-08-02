@@ -7,7 +7,7 @@
 namespace eval tcl9migrate {
     variable packageName tcl9migrate
     variable scriptDirectory [file dirname [info script]]
-    variable packageVersion 0.2
+    variable packageVersion 0.3
     variable outChannel stdout
 
     proc warn {message {frame {}}} {

@@ -113,6 +113,9 @@ catch {chan configure somechan -encoding {}}
 catch {chan configure somechan -encoding binary -eofchar {a b}}
 catch {chan configure somechan -eofchar {a b} -encoding binary}
 
+glob nosuch*
+glob -nocomplain nosuch*
+
 namespace eval ::ns2 {variable var}
 namespace eval ::ns {
 

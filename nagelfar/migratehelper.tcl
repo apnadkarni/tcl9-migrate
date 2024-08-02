@@ -25,6 +25,9 @@ proc statementWords {words info} {
         fconfigure {
             lappend res {*}[fconfigureChecks $words $info]
         }
+        glob {
+            lappend res {*}[globChecks $words $info]
+        }
         load {
             lappend res {*}[loadChecks $words $info]
         }
@@ -81,7 +84,7 @@ proc globalChecks {words info} {
     # matched multiple times in nested blocks.
     foreach word $words {
         if {[regexp {^\S*tcl_platform\(threaded\)} $word]} {
-           lappend res warning "The tcl_platform global does not have a `threaded` element in Tcl 9. \[UNKNOWNVAR\]"
+           lappend res error "The tcl_platform global does not have a `threaded` element in Tcl 9. \[UNKNOWNVAR\]"
         }
     }
     return $res
@@ -184,6 +187,16 @@ proc collectVariableDeclarations {words info} {
     }
 
     return
+}
+
+# glob command
+proc globChecks {words info} {
+    foreach word $words {
+        if {$word eq "-nocomplain"} {
+            return
+        }
+    }
+    return [list note "The glob command in Tcl 9 will not raise an error on an empty result even if option -nocomplain is not specified. \[GLOBCOMPLAIN\]"]
 }
 
 # load command
