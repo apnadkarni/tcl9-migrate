@@ -181,13 +181,16 @@ proc collectVariableDeclarations {words info} {
     # Keep track of declared variables for this namespace
     switch [lindex $words 0] {
         variable {
-            foreach {var val} [lindex $words 1 end] {
+            foreach {var val} [lrange $words 1 end] {
                 dict set ::knownNamespaceVars(${ns}) $var 1
             }
         }
         global {
-            foreach var [lindex $words 1 end] {
-                dict set ::knownNamespaceVars(${ns}) $var 1
+            # The global command has no effect outside a proc
+            if {[dict get $info caller] ne ""} {
+                foreach var [lrange $words 1 end] {
+                    dict set ::knownNamespaceVars(${ns}) $var 1
+                }
             }
         }
     }
